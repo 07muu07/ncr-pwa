@@ -1,0 +1,3721 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <!-- v2.1 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0f1a">
+<title>AutoTrade — NewCoin Radar</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════
+   DESIGN: Mission Control / Trading Terminal Dark
+   Tone: Hyper-functional, industrial precision, military-grade UI
+════════════════════════════════════════════════════════ */
+:root {
+  --bg:       #060b14;
+  --bg2:      #0a1120;
+  --panel:    #0d1828;
+  --card:     #111f30;
+  --border:   #1c3048;
+  --border2:  #254060;
+  --accent:   #00e5ff;
+  --green:    #00ff88;
+  --red:      #ff3355;
+  --gold:     #ffd700;
+  --purple:   #bd93f9;
+  --orange:   #ffb347;
+  --text:     #cce8ff;
+  --muted:    #4a6a8a;
+  --hdr:      52px;
+  --nav:      60px;
+  --safe:     env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  height: 100%; overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,229,255,0.012) 2px, rgba(0,229,255,0.012) 4px
+  );
+  pointer-events: none; z-index: 0;
+}
+
+/* Corner brackets decoration */
+.bracket-wrap {
+  position: relative;
+}
+.bracket-wrap::before, .bracket-wrap::after {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  border-color: var(--accent);
+  border-style: solid;
+  opacity: 0.5;
+}
+.bracket-wrap::before { top: -1px; left: -1px; border-width: 2px 0 0 2px; }
+.bracket-wrap::after  { top: -1px; right: -1px; border-width: 2px 2px 0 0; }
+
+/* ── HEADER ── */
+.hdr {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--hdr);
+  background: rgba(6,11,20,0.97);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 0 14px; z-index: 100;
+}
+.logo-area { display: flex; align-items: center; gap: 8px; }
+.logo-text {
+  font-family: 'Orbitron', monospace;
+  font-size: 13px; font-weight: 900;
+  letter-spacing: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.logo-sub { font-size: 8px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+
+/* System status */
+.sys-status { display: flex; align-items: center; gap: 8px; }
+.status-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 9px; letter-spacing: 1px; text-transform: uppercase;
+}
+.status-pill.running { border-color: var(--green); color: var(--green); }
+.status-pill.stopped { border-color: var(--red); color: var(--red); }
+.status-pill.standby { border-color: var(--gold); color: var(--gold); }
+.sdot { width: 5px; height: 5px; border-radius: 50%; }
+.sdot.r { background: var(--green); box-shadow: 0 0 6px var(--green); animation: blink2 1s ease infinite; }
+.sdot.s { background: var(--red); }
+.sdot.w { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
+@keyframes blink2 { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* Master switch */
+.master-sw {
+  width: 44px; height: 24px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; position: relative; cursor: pointer;
+  transition: all .3s;
+}
+.master-sw.on { background: rgba(0,255,136,.15); border-color: var(--green); }
+.master-sw::after {
+  content: '';
+  position: absolute; top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  border-radius: 50%; background: var(--muted);
+  transition: all .3s;
+}
+.master-sw.on::after { left: 23px; background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+/* ── SCROLL WRAP ── */
+.wrap {
+  position: fixed;
+  top: var(--hdr); left: 0; right: 0;
+  bottom: calc(var(--nav) + var(--safe));
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; z-index: 1;
+}
+
+/* ── BOTTOM NAV ── */
+.bnav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: calc(var(--nav) + var(--safe));
+  padding-bottom: var(--safe);
+  background: rgba(6,11,20,.97);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  display: flex; z-index: 100;
+}
+.ni {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; padding: 8px 4px;
+  position: relative; transition: all .2s;
+}
+.ni::before {
+  content: ''; position: absolute;
+  top: 0; left: 20%; right: 20%;
+  height: 2px; background: var(--accent);
+  border-radius: 0 0 2px 2px;
+  transform: scaleX(0); transition: transform .2s;
+}
+.ni.active::before { transform: scaleX(1); }
+.ni:active { background: rgba(0,229,255,.05); }
+.nicon { font-size: 17px; line-height: 1; }
+.nlabel { font-size: 8px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; }
+.ni.active .nlabel { color: var(--accent); }
+
+/* ── PAGES ── */
+.pg { display: none; padding: 10px; }
+.pg.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 10px; overflow: hidden;
+  position: relative;
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: .4;
+}
+.ch { /* card header */
+  padding: 10px 12px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(0,229,255,.02);
+}
+.ct { /* card title */
+  font-family: 'Orbitron', monospace; font-size: 9px;
+  letter-spacing: 2px; color: var(--accent); text-transform: uppercase;
+}
+.cb { padding: 12px; } /* card body */
+
+/* ── METRICS ROW ── */
+.metrics-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 10px; }
+.met {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 8px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.met::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+}
+.met.m-blue::after   { background: linear-gradient(90deg,var(--accent),transparent); }
+.met.m-green::after  { background: linear-gradient(90deg,var(--green),transparent); }
+.met.m-gold::after   { background: linear-gradient(90deg,var(--gold),transparent); }
+.met.m-red::after    { background: linear-gradient(90deg,var(--red),transparent); }
+.met.m-purple::after { background: linear-gradient(90deg,var(--purple),transparent); }
+.met.m-orange::after { background: linear-gradient(90deg,var(--orange),transparent); }
+.ml { font-size: 8px; color: var(--muted); letter-spacing: .8px; text-transform: uppercase; margin-bottom: 5px; }
+.mv { font-family: 'Orbitron', monospace; font-size: 14px; font-weight: 700; line-height: 1; }
+.ms { font-size: 9px; margin-top: 3px; color: var(--muted); }
+
+/* ── POSITION CARDS ── */
+.pos-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-bottom: 8px;
+  position: relative; overflow: hidden;
+}
+.pos-card.open  { border-color: rgba(0,255,136,.3); }
+.pos-card.empty { border-style: dashed; opacity: .5; }
+.pos-card::before {
+  content: ''; position: absolute;
+  top: 0; left: 0; bottom: 0; width: 3px;
+}
+.pos-card.open::before  { background: linear-gradient(180deg,var(--green),transparent); }
+.pos-card.empty::before { background: var(--border); }
+
+.pos-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.pos-sym { font-family: 'Orbitron', monospace; font-size: 14px; color: var(--green); }
+.pos-badge {
+  font-size: 9px; padding: 3px 8px; border-radius: 3px; letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.pb-open { background: rgba(0,255,136,.12); color: var(--green); border: 1px solid rgba(0,255,136,.3); }
+.pb-empty{ background: rgba(74,106,138,.1); color: var(--muted); border: 1px solid var(--border); }
+
+.pos-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pg-item { }
+.pg-lbl { font-size: 8px; color: var(--muted); margin-bottom: 2px; letter-spacing: .8px; text-transform: uppercase; }
+.pg-val { font-size: 12px; }
+
+.pnl-bar {
+  height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 10px;
+}
+.pnl-fill {
+  height: 100%; border-radius: 2px;
+  transition: width 0.5s ease, background 0.5s;
+}
+
+.pos-actions { display: flex; gap: 6px; margin-top: 10px; }
+.pact {
+  flex: 1; padding: 8px; border-radius: 5px;
+  font-family: 'Orbitron', monospace; font-size: 9px;
+  letter-spacing: 1px; cursor: pointer; border: none;
+  transition: all .2s; text-transform: uppercase;
+}
+.pact.sell { background: rgba(255,51,85,.15); color: var(--red); border: 1px solid rgba(255,51,85,.3); }
+.pact.sell:active { background: rgba(255,51,85,.3); }
+.pact.edit { background: rgba(0,229,255,.08); color: var(--accent); border: 1px solid rgba(0,229,255,.2); }
+.pact:active { transform: scale(.97); }
+
+/* ── SIGNAL PANEL ── */
+.signal-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid rgba(28,48,72,.6);
+  font-size: 11px;
+}
+.signal-row:last-child { border-bottom: none; }
+.sig-name { flex: 1; color: var(--muted); font-size: 10px; }
+.sig-val { min-width: 60px; text-align: right; }
+.sig-bar-wrap { width: 60px; }
+.sig-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.sig-bar-fill { height: 100%; border-radius: 2px; transition: width .5s; }
+
+/* ── LOG ── */
+.log-wrap {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; max-height: 220px;
+  overflow-y: auto; font-size: 10px; line-height: 1.8;
+  padding: 8px;
+}
+.log-line { display: flex; gap: 8px; align-items: baseline; }
+.log-time { color: var(--muted); flex-shrink: 0; font-size: 9px; }
+.log-buy  { color: var(--green); }
+.log-sell { color: var(--red); }
+.log-info { color: var(--accent); }
+.log-warn { color: var(--gold); }
+.log-ai   { color: var(--purple); }
+
+/* ── SETTINGS ── */
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 0; border-bottom: 1px solid rgba(28,48,72,.5);
+}
+.setting-row:last-child { border-bottom: none; }
+.s-lbl { font-size: 11px; color: var(--text); }
+.s-sub { font-size: 9px; color: var(--muted); margin-top: 2px; }
+.s-ctrl { }
+
+.toggle {
+  width: 40px; height: 22px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 11px;
+  position: relative; cursor: pointer; transition: all .3s;
+}
+.toggle.on { background: rgba(0,255,136,.15); border-color: var(--green); }
+.toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--muted); transition: all .3s;
+}
+.toggle.on::after { left: 20px; background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+.num-input {
+  width: 80px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  padding: 6px 8px; outline: none; text-align: right;
+  -webkit-appearance: none;
+}
+.num-input:focus { border-color: var(--accent); }
+
+.sel-input {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 6px 8px; outline: none; -webkit-appearance: none;
+}
+.sel-input:focus { border-color: var(--accent); }
+
+/* ── CHART ── */
+.chart-wrap { padding: 12px; padding-top: 0; }
+
+/* ── ALERT BANNER ── */
+.alert-banner {
+  background: rgba(255,51,85,.08); border: 1px solid rgba(255,51,85,.25);
+  border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: 10px; color: #ff8899; line-height: 1.6;
+  display: flex; gap: 8px;
+}
+
+.info-banner {
+  background: rgba(0,229,255,.06); border: 1px solid rgba(0,229,255,.2);
+  border-radius: 6px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: 10px; color: var(--accent); line-height: 1.6;
+  display: flex; gap: 8px;
+}
+
+/* ── ENTRY TRIGGER ── */
+.entry-trigger {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-bottom: 8px;
+}
+.et-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.et-title { font-family: 'Orbitron', monospace; font-size: 10px; color: var(--accent); letter-spacing: 1.5px; }
+.cond-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cond-item {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 5px; padding: 8px; text-align: center;
+}
+.cond-lbl { font-size: 8px; color: var(--muted); margin-bottom: 3px; letter-spacing: .8px; text-transform: uppercase; }
+.cond-val { font-family: 'Orbitron', monospace; font-size: 12px; font-weight: 700; }
+.cond-item.pass { border-color: rgba(0,255,136,.3); }
+.cond-item.fail { border-color: rgba(255,51,85,.2); }
+.cond-item.pass .cond-val { color: var(--green); }
+.cond-item.fail .cond-val { color: var(--red); }
+.cond-item.wait .cond-val { color: var(--muted); }
+
+/* ── SCAN LIST ── */
+.scan-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-bottom: 1px solid rgba(28,48,72,.5);
+  cursor: pointer; transition: background .15s;
+}
+.scan-item:last-child { border-bottom: none; }
+.scan-item:active { background: rgba(0,229,255,.04); }
+.scan-sym { font-family: 'Orbitron', monospace; font-size: 12px; color: var(--accent); width: 72px; flex-shrink: 0; }
+.scan-score-wrap { flex: 1; }
+.scan-score-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.scan-fill { height: 100%; border-radius: 2px; }
+.scan-right { text-align: right; min-width: 54px; }
+.scan-pct { font-size: 11px; }
+.scan-age { font-size: 9px; color: var(--muted); margin-top: 2px; }
+
+/* ── UTIL ── */
+.pos-txt { color: var(--green); }
+.neg-txt { color: var(--red); }
+.gold-txt { color: var(--gold); }
+.blue-txt { color: var(--accent); }
+.dim-txt  { color: var(--muted); }
+
+.hl { font-family: 'Orbitron', monospace; font-size: 12px; color: var(--accent); font-weight: 700; }
+
+.row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(28,48,72,.4); font-size: 11px; }
+.row:last-child { border-bottom: none; }
+.rk { color: var(--muted); font-size: 10px; }
+
+.divider { height: 1px; background: var(--border); margin: 10px 0; }
+.shd { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; padding-bottom: 6px; border-bottom: 1px solid var(--border); margin: 14px 0 8px; }
+
+.exec-btn {
+  width: 100%; padding: 14px; margin-top: 10px;
+  border-radius: 7px; font-family: 'Orbitron', monospace;
+  font-size: 11px; letter-spacing: 2px; cursor: pointer;
+  transition: all .2s; text-transform: uppercase; border: none;
+}
+.btn-buy {
+  background: linear-gradient(135deg, rgba(0,255,136,.2), rgba(0,255,136,.08));
+  color: var(--green); border: 1px solid rgba(0,255,136,.4);
+}
+.btn-buy:active { background: rgba(0,255,136,.3); transform: scale(.98); }
+.btn-danger {
+  background: linear-gradient(135deg, rgba(255,51,85,.2), rgba(255,51,85,.08));
+  color: var(--red); border: 1px solid rgba(255,51,85,.4);
+}
+.btn-danger:active { background: rgba(255,51,85,.3); transform: scale(.98); }
+.btn-neutral {
+  background: rgba(0,229,255,.08);
+  color: var(--accent); border: 1px solid rgba(0,229,255,.25);
+}
+.btn-neutral:active { background: rgba(0,229,255,.18); }
+
+.ld { display: inline-flex; gap: 3px; align-items: center; }
+.ld span { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: ld 1.2s ease infinite; }
+.ld span:nth-child(2) { animation-delay: .2s; }
+.ld span:nth-child(3) { animation-delay: .4s; }
+@keyframes ld { 0%,80%,100%{opacity:.2}40%{opacity:1} }
+
+/* TOAST */
+.toast {
+  position: fixed; bottom: calc(var(--nav) + var(--safe) + 12px);
+  left: 12px; right: 12px;
+  background: var(--card); border-radius: 8px; padding: 11px 14px;
+  font-size: 11px; z-index: 300; text-align: center;
+  transform: translateY(20px); opacity: 0; transition: all .3s ease;
+  border: 1px solid var(--border);
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.t-buy  { border-color: var(--green); color: var(--green); }
+.toast.t-sell { border-color: var(--red);   color: var(--red); }
+.toast.t-info { border-color: var(--accent); color: var(--accent); }
+.toast.t-warn { border-color: var(--gold);  color: var(--gold); }
+
+/* CONFIRM MODAL */
+.modal-ov {
+  position: fixed; inset: 0; background: rgba(0,0,0,.85);
+  backdrop-filter: blur(12px); z-index: 200;
+  display: none; align-items: flex-end; justify-content: center;
+}
+.modal-ov.open { display: flex; }
+.msheet {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px 16px 0 0; width: 100%;
+  padding: 20px 16px calc(20px + var(--safe));
+}
+.mhandle { width: 32px; height: 3px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.mtitle { font-family: 'Orbitron', monospace; font-size: 13px; letter-spacing: 1.5px; color: var(--accent); margin-bottom: 14px; text-align: center; }
+.mdetail { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 14px; }
+.mbtn-row { display: flex; gap: 8px; }
+.mbtn { flex: 1; padding: 13px; border-radius: 7px; font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 1.5px; cursor: pointer; text-align: center; border: none; }
+.mbtn-ok   { background: rgba(0,255,136,.15); color: var(--green);  border: 1px solid rgba(0,255,136,.4); }
+.mbtn-no   { background: rgba(255,51,85,.1);  color: var(--red);    border: 1px solid rgba(255,51,85,.3); }
+.mbtn-gray { background: var(--panel);         color: var(--muted);  border: 1px solid var(--border); }
+
+/* SL SLIDER */
+.sl-display { font-family: 'Orbitron', monospace; font-size: 20px; color: var(--red); text-align: center; margin: 10px 0; }
+input[type=range] {
+  width: 100%; -webkit-appearance: none; height: 4px;
+  background: linear-gradient(90deg, var(--red), var(--gold));
+  border-radius: 2px; outline: none; margin: 8px 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--text);
+  border: 2px solid var(--bg); cursor: pointer;
+  box-shadow: 0 0 6px rgba(255,51,85,.5);
+}
+
+/* ── PIPELINE ── */
+.pipe-stage {
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  flex:1;
+}
+.pipe-num {
+  width:32px;height:32px;border-radius:50%;
+  background:var(--border);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Orbitron',monospace;font-size:11px;font-weight:700;
+  transition:all .4s;
+}
+.pipe-stage.active .pipe-num {
+  background:var(--accent);color:var(--bg);
+  box-shadow:0 0 12px var(--accent);
+}
+.pipe-stage.pass .pipe-num {
+  background:var(--green);color:var(--bg);
+  box-shadow:0 0 10px var(--green);
+}
+.pipe-stage.fail .pipe-num { background:var(--red); color:var(--bg); }
+.pipe-ai .pipe-num { background:var(--panel);color:var(--purple);border:1px solid var(--purple); }
+.pipe-stage.ai-active .pipe-num {
+  background:var(--purple);color:var(--bg);
+  box-shadow:0 0 14px var(--purple);
+  animation:aiPulse .8s ease infinite;
+}
+.pipe-stage.ai-done .pipe-num { background:var(--purple);color:var(--bg); }
+@keyframes aiPulse{0%,100%{box-shadow:0 0 8px var(--purple)}50%{box-shadow:0 0 20px var(--purple)}}
+.pipe-lbl { font-size:10px;color:var(--text);letter-spacing:.5px; }
+.pipe-sub { font-size:9px;color:var(--muted); }
+.pipe-arrow {
+  color:var(--border);font-size:14px;padding:0 2px;
+  transition:color .4s;flex-shrink:0;margin-bottom:14px;
+}
+.pipe-arrow.lit { color:var(--green); }
+
+/* per-coin filter row */
+.filter-row {
+  padding:9px 12px;border-bottom:1px solid rgba(28,48,72,.5);
+  font-size:11px;
+}
+.filter-row:last-child{border-bottom:none}
+.filter-row-head {
+  display:flex;align-items:center;gap:8px;margin-bottom:6px;
+}
+.fr-sym { font-family:'Orbitron',monospace;font-size:11px;color:var(--accent);width:72px;flex-shrink:0; }
+.fr-age { font-size:9px;color:var(--muted); }
+.fr-result { margin-left:auto;font-size:10px;font-family:'Orbitron',monospace; }
+.filter-stages {
+  display:flex;align-items:center;gap:4px;
+}
+.fs-chip {
+  flex:1;padding:4px 2px;border-radius:4px;text-align:center;
+  font-size:9px;border:1px solid var(--border);
+  background:var(--panel);color:var(--muted);
+  transition:all .3s;
+}
+.fs-chip.pass { background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.3);color:var(--green); }
+.fs-chip.fail { background:rgba(255,51,85,.06);border-color:rgba(255,51,85,.2);color:var(--red); }
+.fs-chip.skip { opacity:.35; }
+.fs-chip.ai-run { background:rgba(189,147,249,.12);border-color:rgba(189,147,249,.3);color:var(--purple);animation:aiPulse .8s ease infinite; }
+.fs-chip.ai-pass { background:rgba(189,147,249,.2);border-color:var(--purple);color:var(--purple); }
+.fs-sep { color:var(--border);font-size:10px;flex-shrink:0; }
+
+
+/* ── SETTINGS PREVIEW ── */
+.prev-chip {
+  background:var(--bg2);border:1px solid var(--border);border-radius:5px;
+  padding:6px 8px;display:flex;flex-direction:column;gap:2px;
+}
+.prev-lbl { font-size:8px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase; }
+.prev-val { font-size:11px;color:var(--text);font-family:'JetBrains Mono',monospace; }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="logo-area">
+    <div>
+      <div class="logo-text">AUTO TRADE</div>
+      <div class="logo-sub">NewCoin Radar System</div>
+    </div>
+  </div>
+  <div class="sys-status">
+    <div class="status-pill" id="modeLabel" style="border-color:var(--muted);color:var(--muted);font-size:9px">DEMO</div>
+    <div class="status-pill standby" id="sysPill">
+      <div class="sdot w" id="sysDot"></div>
+      <span id="sysLabel">STANDBY</span>
+    </div>
+    <div class="master-sw" id="masterSw" onclick="toggleSystem()"></div>
+  </div>
+</header>
+
+<!-- SCROLL WRAP -->
+<div class="wrap" id="wrap">
+
+  <!-- ═══ PAGE: DASHBOARD ═══ -->
+  <div class="pg active" id="pg-dash">
+
+    <div class="alert-banner">
+      <span>⚠</span>
+      <span>このシステムはデモ環境です。本番APIキー設定前に必ずペーパートレードで動作確認を行ってください。実際の資金を使用したトレードに伴うリスクはすべてユーザー自身が負います。</span>
+    </div>
+
+    <!-- System metrics -->
+    <div class="metrics-row">
+      <div class="met m-blue">
+        <div class="ml">総資産</div>
+        <div class="mv blue-txt" id="mBalance">—</div>
+        <div class="ms">USDT</div>
+      </div>
+      <div class="met m-green">
+        <div class="ml">累計損益</div>
+        <div class="mv" id="mPnL" style="color:var(--muted)">—</div>
+        <div class="ms" id="mPnLPct">—</div>
+      </div>
+      <div class="met m-gold">
+        <div class="ml">勝率</div>
+        <div class="mv gold-txt" id="mWinRate">—</div>
+        <div class="ms" id="mTrades">0トレード</div>
+      </div>
+    </div>
+    <div class="metrics-row">
+      <div class="met m-purple">
+        <div class="ml">スキャン対象</div>
+        <div class="mv" style="color:var(--purple)" id="mScanCount">0</div>
+        <div class="ms">コイン監視中</div>
+      </div>
+      <div class="met m-orange">
+        <div class="ml">空きポジ</div>
+        <div class="mv" style="color:var(--orange)" id="mFreeSlot">2/2</div>
+        <div class="ms">最大2ポジ</div>
+      </div>
+      <div class="met m-blue">
+        <div class="ml">次回スキャン</div>
+        <div class="mv blue-txt" id="mNextScan">5:00</div>
+        <div class="ms" id="mNextScanLabel">5分足</div>
+      </div>
+    </div>
+
+    <!-- Positions -->
+    <div class="card">
+      <div class="ch"><span class="ct">オープンポジション</span><span style="font-size:9px;color:var(--muted)">最大2ポジション</span></div>
+      <div class="cb" style="padding:10px">
+        <div id="posSlot0"></div>
+        <div id="posSlot1"></div>
+      </div>
+    </div>
+
+    <!-- Stats (サーバー側損益履歴から集計) -->
+    <div class="card" id="statsCard" style="display:none">
+      <div class="ch">
+        <span class="ct">📊 統計</span>
+        <span id="statsConnStatus" style="font-size:9px;color:var(--muted)">—</span>
+      </div>
+      <div class="cb" style="padding:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:9px;color:var(--muted)">集計開始: <span id="statsResetTimeDisp">全期間</span></span>
+          <button onclick="confirmResetStats()" style="font-size:9px;background:none;border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:6px">🔄 集計をリセット</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:10px">
+          <div style="text-align:center"><div style="color:var(--muted)">総トレード</div><div id="statTotalTrades" style="font-size:14px;font-weight:bold">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">勝率</div><div id="statWinRate" style="font-size:14px;font-weight:bold;color:var(--gold)">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">平均利益</div><div id="statAvgWin" style="font-size:14px;font-weight:bold;color:var(--green)">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">平均損失</div><div id="statAvgLoss" style="font-size:14px;font-weight:bold;color:var(--red)">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">最大利益</div><div id="statMaxWin" style="font-size:14px;font-weight:bold;color:var(--green)">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">最大損失</div><div id="statMaxLoss" style="font-size:14px;font-weight:bold;color:var(--red)">—</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:10px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+          <div style="text-align:center"><div style="color:var(--muted)">本日損益</div><div id="statTodayPnl" style="font-size:13px;font-weight:bold">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">今週損益</div><div id="statWeekPnl" style="font-size:13px;font-weight:bold">—</div></div>
+          <div style="text-align:center"><div style="color:var(--muted)">今月損益</div><div id="statMonthPnl" style="font-size:13px;font-weight:bold">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live chart -->
+    <div class="card">
+      <div class="ch">
+        <span class="ct" id="chartTitle">◈ ライブチャート</span>
+        <span style="font-size:9px;color:var(--muted)">5分足 / Bitget</span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="liveChart" height="200"></canvas>
+      </div>
+    </div>
+
+    <!-- AI Signals -->
+    <div class="card">
+      <div class="ch"><span class="ct">AI 判断シグナル</span><span id="lastScanTime" style="font-size:9px;color:var(--muted)">未スキャン</span></div>
+      <div class="cb">
+        <div class="signal-row">
+          <span class="sig-name">Claude AI スコア</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-claude" style="width:0%;background:var(--purple)"></div></div></div>
+          <span class="sig-val" id="sv-claude" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">テクニカル総合</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-tech" style="width:0%;background:var(--accent)"></div></div></div>
+          <span class="sig-val" id="sv-tech" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">RSI (5m)</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-rsi" style="width:0%;background:var(--gold)"></div></div></div>
+          <span class="sig-val" id="sv-rsi" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">出来高比率</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-vol" style="width:0%;background:var(--green)"></div></div></div>
+          <span class="sig-val" id="sv-vol" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">MACD シグナル</span>
+          <div class="sig-bar-wrap"><div class="sig-bar"><div class="sig-bar-fill" id="sb-macd" style="width:0%;background:var(--orange)"></div></div></div>
+          <span class="sig-val" id="sv-macd" style="color:var(--muted)">—</span>
+        </div>
+        <div class="signal-row">
+          <span class="sig-name">エントリー判定</span>
+          <div class="sig-bar-wrap"></div>
+          <span class="sig-val" id="sv-entry" style="color:var(--muted);font-family:'Orbitron',monospace;font-size:10px">WAIT</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade log -->
+    <div class="card">
+      <div class="ch"><span class="ct">トレードログ</span><button onclick="clearLog()" style="font-size:9px;background:none;border:none;color:var(--muted);cursor:pointer">CLR</button></div>
+      <div class="cb" style="padding:8px">
+        <div class="log-wrap" id="logBox"></div>
+      </div>
+    </div>
+
+  </div><!-- /pg-dash -->
+
+  <!-- ═══ PAGE: SCAN ═══ -->
+  <div class="pg" id="pg-scan">
+
+    <!-- 4-stage pipeline visual -->
+    <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px">
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--accent);margin-bottom:12px">◈ 4段階フィルターパイプライン</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="pipe-stage" id="pipe1">
+          <div class="pipe-num">1</div>
+          <div class="pipe-lbl">RSI</div>
+          <div class="pipe-sub" id="pipeRsiN">—</div>
+        </div>
+        <div class="pipe-arrow" id="arr1">▶</div>
+        <div class="pipe-stage" id="pipe2">
+          <div class="pipe-num">2</div>
+          <div class="pipe-lbl">MACD</div>
+          <div class="pipe-sub" id="pipeMacdN">—</div>
+        </div>
+        <div class="pipe-arrow" id="arr2">▶</div>
+        <div class="pipe-stage" id="pipe3">
+          <div class="pipe-num">3</div>
+          <div class="pipe-lbl">出来高</div>
+          <div class="pipe-sub" id="pipeVolN">—</div>
+        </div>
+        <div class="pipe-arrow" id="arr3">▶</div>
+        <div class="pipe-stage pipe-ai" id="pipe4">
+          <div class="pipe-num" style="background:var(--purple);box-shadow:0 0 8px var(--purple)">AI</div>
+          <div class="pipe-lbl" style="color:var(--purple)">Claude</div>
+          <div class="pipe-sub" id="pipeAiN">—</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-size:9px;text-align:center">
+        <div><div style="color:var(--muted)">全銘柄</div><div style="color:var(--text);font-family:'Orbitron',monospace" id="pipeIn">—</div></div>
+        <div><div style="color:var(--muted)">RSI通過</div><div style="color:var(--gold);font-family:'Orbitron',monospace" id="pipeRsiC">—</div></div>
+        <div><div style="color:var(--muted)">MACD通過</div><div style="color:var(--orange);font-family:'Orbitron',monospace" id="pipeMacdC">—</div></div>
+        <div><div style="color:var(--muted)">出来高通過</div><div style="color:var(--green);font-family:'Orbitron',monospace" id="pipeVolC">—</div></div>
+      </div>
+    </div>
+
+    <!-- Scan trigger -->
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:stretch">
+      <button class="exec-btn btn-neutral" style="flex:1;margin:0;padding:12px;font-size:10px" onclick="runScan()">
+        📡 スキャン実行
+      </button>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--muted);display:flex;flex-direction:column;justify-content:center;text-align:center">
+        <div>最終スキャン</div>
+        <div id="lastScanTime2" style="color:var(--text);font-size:11px;margin-top:2px">未実行</div>
+      </div>
+    </div>
+
+    <!-- Per-coin filter breakdown table -->
+    <div class="card">
+      <div class="ch">
+        <span class="ct">銘柄別フィルター進捗</span>
+        <span id="scanResultCount" style="font-size:9px;color:var(--muted)">—</span>
+      </div>
+      <div id="scanList" style="padding:4px 0">
+        <div style="color:var(--muted);font-size:11px;text-align:center;padding:20px">スキャン実行後に表示</div>
+      </div>
+    </div>
+
+    <!-- AI analysis result panel (only shown after stage3 pass) -->
+    <div class="card" id="aiResultCard" style="display:none">
+      <div class="ch" style="background:rgba(189,147,249,0.05)">
+        <span class="ct" style="color:var(--purple)">🤖 Claude AI 分析結果</span>
+        <span id="aiResultSym" style="font-family:'Orbitron',monospace;font-size:11px;color:var(--accent)">—</span>
+      </div>
+      <div class="cb">
+        <div id="aiResultBody" style="font-size:11px;line-height:1.8;color:var(--text);white-space:pre-wrap;min-height:80px;border-left:3px solid var(--purple);padding-left:10px"></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px">
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);margin-bottom:3px;letter-spacing:.8px">AI スコア</div>
+            <div style="font-family:'Orbitron',monospace;font-size:18px;font-weight:700" id="aiScore">—</div>
+          </div>
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);margin-bottom:3px;letter-spacing:.8px">判定</div>
+            <div style="font-family:'Orbitron',monospace;font-size:12px;font-weight:700" id="aiVerdict">—</div>
+          </div>
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:8px;text-align:center">
+            <div style="font-size:8px;color:var(--muted);margin-bottom:3px;letter-spacing:.8px">信頼度</div>
+            <div style="font-family:'Orbitron',monospace;font-size:18px;font-weight:700" id="aiConf">—</div>
+          </div>
+        </div>
+        <!-- On-chain breakdown (populated by updateOnChainPanel) -->
+        <div id="ocBreakdown" style="margin-top:12px"></div>
+        <button class="exec-btn btn-buy" id="aiEntryBtn" style="display:none;margin-top:10px" onclick="entryFromAI()">
+          ◎ このシグナルでエントリー
+        </button>
+      </div>
+    </div>
+
+    <!-- Manual entry -->
+    <div class="card">
+      <div class="ch"><span class="ct">手動エントリー</span></div>
+      <div class="cb">
+        <div class="row"><span class="rk">コイン</span>
+          <select class="sel-input" id="manualSym">
+            <option value="TURBO">TURBO</option><option value="PEPE">PEPE</option>
+            <option value="WIF">WIF</option><option value="BOME">BOME</option>
+            <option value="EIGEN">EIGEN</option><option value="LISTA">LISTA</option>
+          </select>
+        </div>
+        <div class="row"><span class="rk">投入USDT</span>
+          <input type="number" class="num-input" id="manualAmt" value="500" min="10" step="10">
+        </div>
+        <div class="row"><span class="rk">ストップロス</span>
+          <input type="number" class="num-input" id="manualSL" value="-6" min="-50" max="-1" step="1">
+        </div>
+        <button class="exec-btn btn-buy" onclick="openConfirm('manual')">◎ エントリー確認</button>
+      </div>
+    </div>
+
+  </div><!-- /pg-scan -->
+
+  <!-- ═══ PAGE: STRATEGY ═══ -->
+  <div class="pg" id="pg-strategy">
+
+    <!-- 設定プレビューバナー -->
+    <div id="settingPreview" style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;font-size:10px">
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:1.5px;color:var(--accent);margin-bottom:8px">◈ 現在の取引条件</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px" id="previewGrid">
+        <div class="prev-chip"><span class="prev-lbl">上場制限</span><span class="prev-val" id="pv-age">48H以内</span></div>
+        <div class="prev-chip"><span class="prev-lbl">AIスコア</span><span class="prev-val" id="pv-ai">≥ 65点</span></div>
+        <div class="prev-chip"><span class="prev-lbl">RSI範囲</span><span class="prev-val" id="pv-rsi">40〜70</span></div>
+        <div class="prev-chip"><span class="prev-lbl">出来高倍率</span><span class="prev-val" id="pv-vol">≥ 2.0x</span></div>
+        <div class="prev-chip"><span class="prev-lbl">最低流動性</span><span class="prev-val" id="pv-liq">≥ $100K</span></div>
+        <div class="prev-chip"><span class="prev-lbl">損切り</span><span class="prev-val neg-txt" id="pv-sl">-8%</span></div>
+        <div class="prev-chip" style="grid-column:1/-1"><span class="prev-lbl">利確</span><span class="prev-val pos-txt" id="pv-tp">①+20%で50%売 ②+40%で25%売 残りTR-10%</span></div>
+      </div>
+    </div>
+
+    <!-- 自動化ON/OFF -->
+    <div class="shd" style="margin-top:0">自動化設定</div>
+    <div class="card">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">自動エントリー</div><div class="s-sub">条件合致で自動買い注文</div></div>
+          <div class="toggle on" id="tog-auto" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">自動段階利確</div><div class="s-sub">TP①②とトレーリングを自動実行</div></div>
+          <div class="toggle on" id="tog-tp" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">自動損切り</div><div class="s-sub">SLライン到達で自動売り</div></div>
+          <div class="toggle on" id="tog-sl" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">AI フィルター</div><div class="s-sub">AIスコア未達は除外</div></div>
+          <div class="toggle on" id="tog-ai" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">Telegram 通知</div><div class="s-sub">売買時にBot通知</div></div>
+          <div class="toggle" id="tog-tg" onclick="toggleSetting(this)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- サーバー側自律スキャン -->
+    <div class="shd" style="color:var(--gold)">🤖 サーバー側自律スキャン（携帯OFF対応）</div>
+    <div class="card" style="border:1px solid var(--gold)">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">自律スキャン</div><div class="s-sub" id="autoScanStatusText">OFF（携帯のブラウザでのみスキャン）</div></div>
+          <div class="toggle" id="tog-autoscan" onclick="confirmAutoScanToggle()"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px">
+          ONにすると、新規銘柄の検出・AI判定・自動エントリーが<b style="color:var(--gold)">Railwayサーバー上で完全に自律実行</b>されます。<br>
+          携帯の電源を切っても、リモートデスクトップを閉じても、新規の自動売買が継続します。<br>
+          <span style="color:var(--red)">⚠ 実弾モードと併用する場合、実際にBitgetへ注文が送信されます。</span><br>
+          最終スキャン: <span id="autoScanLastTime">—</span><br>
+          本日のスキャン回数: <span id="autoScanTodayCount" style="color:var(--gold)">—</span> / 累計: <span id="autoScanTotalCount" style="color:var(--gold)">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 実弾トレード -->
+    <div class="shd" style="color:var(--red)">⚠ 実弾トレード（要注意）</div>
+    <div id="guardrailBanner" style="display:none;background:var(--red);color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:10px;font-size:12px;font-weight:bold;line-height:1.5"></div>
+    <div class="card" style="border:1px solid var(--red)">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">実弾モード</div><div class="s-sub" id="liveStatusText">OFF（シミュレーションのみ）</div></div>
+          <div class="toggle" id="tog-live" onclick="confirmLiveToggle()"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);line-height:1.5;margin-top:4px">
+          ONにすると、FULLモードでのAI自動エントリー時に<b style="color:var(--red)">実際にBitgetへ注文が送信されます</b>。<br>
+          以下の場合、システムが自動的に緊急停止します（最小限構成）：<br>
+          ・1日最大損失率: <span id="grLossLimitDisp">15</span>%（その日の開始残高比） 到達<br>
+          ・連続損切り <span id="grSlCountDisp">3</span> 回到達<br>
+          <span style="color:var(--muted)">※APIエラー連発・ネットワーク異常・残高不一致・異常スリッページの自動停止は現在無効化中（決済動作の検証を優先）</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- エントリー条件 -->
+    <div class="shd">エントリー条件</div>
+    <div class="card">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">上場後経過時間</div><div class="s-sub">これ以内の銘柄のみ対象</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-maxage" value="48" min="1" max="168" step="1">
+            <span style="font-size:10px;color:var(--muted)">H</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">AI スコア 閾値</div><div class="s-sub">これ以上でエントリー許可</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-aithresh" value="75" min="40" max="95" step="5">
+            <span style="font-size:10px;color:var(--muted)">点</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">RSI 下限</div><div class="s-sub">この値以上のみ通過</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-rsimin" value="45" min="10" max="60" step="1">
+            <span style="font-size:10px;color:var(--muted)">〜</span>
+            <input type="number" class="num-input" id="set-rsimax" value="65" min="50" max="90" step="1">
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">出来高占有率（参考値）</div><div class="s-sub">サーバー側で3%固定判定中</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-volmul" value="3" min="1" max="20" step="1" disabled style="opacity:0.5">
+            <span style="font-size:10px;color:var(--muted)">%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">最低流動性</div><div class="s-sub">Bid+Ask合計の最低額</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-liq" value="100" min="10" max="1000" step="10">
+            <span style="font-size:10px;color:var(--muted)">K$</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 損切り -->
+    <div class="shd">損切り（ストップロス）</div>
+    <div class="card">
+      <div class="cb">
+        <div class="sl-display" id="slDisplay">-8%</div>
+        <input type="range" id="slSlider" min="-50" max="-3" step="1" value="-8" oninput="updateSL(this.value)">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:8px">
+          <span>-50%（広め）</span><span>-3%（タイト）</span>
+        </div>
+        <div class="info-banner" style="margin-bottom:0">
+          <span>💡</span><span id="slAdvice">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 段階利確 -->
+    <div class="shd">段階利確（テイクプロフィット）</div>
+    <div class="card">
+      <div class="cb">
+        <!-- TP1 -->
+        <div style="background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:6px;padding:10px;margin-bottom:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--green);letter-spacing:1px;margin-bottom:8px">利確①</div>
+          <div class="setting-row" style="padding:4px 0">
+            <div><div class="s-lbl">達成ライン</div><div class="s-sub">エントリーからの上昇率</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp1pct" value="20" min="5" max="200" step="5">
+              <span style="font-size:10px;color:var(--muted)">%</span>
+            </div>
+          </div>
+          <div class="setting-row" style="padding:4px 0;border-bottom:none">
+            <div><div class="s-lbl">売却比率</div><div class="s-sub">保有量のうち何%売るか</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp1sell" value="50" min="10" max="90" step="5">
+              <span style="font-size:10px;color:var(--muted)">%売</span>
+            </div>
+          </div>
+        </div>
+        <!-- TP2 -->
+        <div style="background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.2);border-radius:6px;padding:10px;margin-bottom:8px">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--accent);letter-spacing:1px;margin-bottom:8px">利確②</div>
+          <div class="setting-row" style="padding:4px 0">
+            <div><div class="s-lbl">達成ライン</div><div class="s-sub">エントリーからの上昇率</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp2pct" value="40" min="10" max="300" step="5">
+              <span style="font-size:10px;color:var(--muted)">%</span>
+            </div>
+          </div>
+          <div class="setting-row" style="padding:4px 0;border-bottom:none">
+            <div><div class="s-lbl">売却比率</div><div class="s-sub">残保有量のうち何%売るか</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <input type="number" class="num-input" id="set-tp2sell" value="25" min="10" max="90" step="5">
+              <span style="font-size:10px;color:var(--muted)">%売</span>
+            </div>
+          </div>
+        </div>
+        <!-- Trailing -->
+        <div style="background:rgba(189,147,249,.05);border:1px solid rgba(189,147,249,.2);border-radius:6px;padding:10px">
+          <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--purple);letter-spacing:1px;margin-bottom:8px">残り全量 — トレーリングストップ</div>
+          <div class="setting-row" style="padding:4px 0;border-bottom:none">
+            <div><div class="s-lbl">高値から下落</div><div class="s-sub">最高値からこの%下落で決済</div></div>
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:10px;color:var(--muted)">-</span>
+              <input type="number" class="num-input" id="set-trail" value="10" min="3" max="30" step="1">
+              <span style="font-size:10px;color:var(--muted)">%</span>
+            </div>
+          </div>
+        </div>
+        <!-- Remaining calc -->
+        <div style="margin-top:8px;padding:8px;background:var(--bg2);border-radius:5px;font-size:10px;color:var(--muted);text-align:center" id="tpRemainCalc">
+          残り保有量 = 100% - ①売却% - (①残り × ②売却%) = <span id="tpRemainPct" style="color:var(--text)">—</span>%
+        </div>
+      </div>
+    </div>
+
+    <!-- 運用設定 -->
+    <div class="shd">運用設定</div>
+    <div class="card">
+      <div class="cb">
+        <div class="setting-row">
+          <div><div class="s-lbl">最大ポジション数</div><div class="s-sub">同時保有上限</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-maxpos" value="2" min="1" max="5" step="1">
+            <span style="font-size:10px;color:var(--muted)">個</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">1ポジ投入額</div><div class="s-sub">総資産に対する割合</div></div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <input type="number" class="num-input" id="set-size" value="30" min="5" max="100" step="5">
+            <span style="font-size:10px;color:var(--muted)">%</span>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div><div class="s-lbl">スキャン間隔</div><div class="s-sub">5分足に合わせたスキャン</div></div>
+          <select class="sel-input" id="set-interval">
+            <option value="5" selected>5分</option>
+            <option value="1">1分</option>
+            <option value="15">15分</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="exec-btn btn-neutral" onclick="saveSettings()">💾 設定を保存</button>
+    <button class="exec-btn btn-danger" style="margin-top:6px" onclick="resetSettings()">↺ デフォルトに戻す</button>
+
+    <!-- サーバー接続状態 -->
+    <div class="shd">サーバー接続状態</div>
+    <div class="card">
+      <div class="cb">
+        <div class="row">
+          <span class="rk">Railwayサーバー</span>
+          <span id="serverStatusLabel" style="font-size:11px;color:var(--muted)">確認中...</span>
+        </div>
+        <div class="row">
+          <span class="rk">接続モード</span>
+          <span id="serverModeLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">Bitget</span>
+          <span id="serverBitgetLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">Claude AI</span>
+          <span id="serverClaudeLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">CMC</span>
+          <span id="serverCmcLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <div class="row">
+          <span class="rk">データ永続化</span>
+          <span id="serverDbLabel" style="font-size:11px;color:var(--muted)">—</span>
+        </div>
+        <button class="exec-btn btn-neutral" style="margin-top:8px" onclick="checkServerConnection()">🔌 接続確認</button>
+      </div>
+    </div>
+
+  </div><!-- /pg-strategy -->
+
+  <!-- ═══ PAGE: HISTORY ═══ -->
+  <div class="pg" id="pg-history">
+
+    <!-- P&L Summary -->
+    <div class="metrics-row">
+      <div class="met m-green">
+        <div class="ml">総利益</div>
+        <div class="mv pos-txt" id="hTotalProfit">+$0</div>
+        <div class="ms">確定損益</div>
+      </div>
+      <div class="met m-red">
+        <div class="ml">総損失</div>
+        <div class="mv neg-txt" id="hTotalLoss">-$0</div>
+        <div class="ms">確定損益</div>
+      </div>
+      <div class="met m-gold">
+        <div class="ml">勝率</div>
+        <div class="mv gold-txt" id="hWinRate">—</div>
+        <div class="ms" id="hRecord">0勝0敗</div>
+      </div>
+    </div>
+
+    <!-- PnL Chart -->
+    <div class="chart-wrap" style="background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;padding:12px">
+      <div style="font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--accent);margin-bottom:10px">◈ 累積損益推移</div>
+      <canvas id="pnlChart" height="140"></canvas>
+    </div>
+
+    <!-- 月次レポート -->
+    <div class="card">
+      <div class="ch"><span class="ct">📊 月次レポート</span><span id="reportMonth" style="font-size:9px;color:var(--muted)">—</span></div>
+      <div class="cb">
+        <div id="monthlyReportArea" style="font-size:10px;color:var(--muted);padding:8px 0">トレード履歴が蓄積されると自動生成されます</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="exec-btn btn-neutral" style="flex:1;font-size:10px;padding:10px" onclick="generateMonthlyReport()">🤖 AIレポート生成</button>
+          <button class="exec-btn btn-neutral" style="flex:1;font-size:10px;padding:10px" onclick="exportCSV()">📥 CSV出力</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Trade history -->
+    <div class="card">
+      <div class="ch"><span class="ct">トレード履歴</span><span id="hCount" style="font-size:9px;color:var(--muted)">0件</span></div>
+      <div id="histList" style="display:flex;flex-direction:column;max-height:280px;overflow-y:auto">
+        <div style="text-align:center;color:var(--muted);padding:20px;font-size:11px">トレード履歴なし</div>
+      </div>
+    </div>
+
+  </div><!-- /pg-history -->
+
+</div><!-- /wrap -->
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <div class="ni active" onclick="goPage('dash',this)"><span class="nicon">🖥</span><span class="nlabel">ダッシュ</span></div>
+  <div class="ni" onclick="goPage('scan',this)"><span class="nicon">📡</span><span class="nlabel">スキャン</span></div>
+  <div class="ni" onclick="goPage('strategy',this)"><span class="nicon">⚙</span><span class="nlabel">設定</span></div>
+  <div class="ni" onclick="goPage('history',this)"><span class="nicon">📈</span><span class="nlabel">履歴</span></div>
+</nav>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-ov" id="modal" onclick="overlayClick(event)">
+  <div class="msheet">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="mTitle">注文確認</div>
+    <div class="mdetail" id="mDetail"></div>
+    <div class="mbtn-row">
+      <button class="mbtn mbtn-gray" onclick="closeModal()">キャンセル</button>
+      <button class="mbtn mbtn-ok" id="mConfirmBtn" onclick="executeOrder()">実行する</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══ サーバー接続設定 ══════════════════════════════════════════
+const SERVER_URL = 'https://web-production-31186.up.railway.app';
+let APP_MODE = 'DEMO';
+// LIVE_TRADING: true = 実際にBitgetへ注文を送信する。false = FULLモードでもシミュレーションのまま。
+// デフォルトはfalse（安全側）。明示的にONにするまで実弾化しない。
+let LIVE_TRADING = false;
+
+// ガードレール用の状態（実弾移行時の安全装置）
+const GUARDRAIL = {
+  dailyLossLimitPct: -15,    // 1日の最大損失率(%) — その日の開始時残高に対する割合。これを超えたら自動停止
+  dailyStartBalance: 0,      // その日の開始時点の残高（日次リセット時に記録）
+  maxConsecutiveSL: 3,      // 連続損切り回数。これに達したら自動停止
+  consecutiveSLCount: 0,
+  dailyPnl: 0,
+  dailyResetDate: new Date().toDateString(),
+  tripped: false,           // ガードレール発動でシステムが停止された状態
+  tripReason: '',
+  autoRecoverable: false,   // trueの場合、サーバー復活を検知したら自動復帰する（ネットワーク異常限定）
+  autoRecoveryTimer: null,  // 自動復帰監視のsetIntervalID
+  // API異常検知
+  consecutiveApiErrors: 0,
+  maxConsecutiveApiErrors: 3,
+  lastApiErrorTime: 0,
+  // ネットワーク断絶検知
+  lastSuccessfulPing: Date.now(),
+  networkTimeoutMs: 30000, // 30秒間サーバー応答がなければ異常とみなす
+
+  // ── 各ガードレールの有効/無効スイッチ ──────────────────
+  // 最小限構成: 日次最大損失率・連続損切りのみ有効。それ以外は決済動作の検証を優先するため一時的に無効化。
+  enableDailyLossLimit: true,
+  enableConsecutiveSL: true,
+  enableApiErrorGuardrail: false,
+  enableNetworkHealthGuardrail: false,
+  enableBalanceConsistencyGuardrail: false,
+  enableSlippageGuardrail: false,
+};
+
+function checkDailyReset() {
+  const today = new Date().toDateString();
+  if (today !== GUARDRAIL.dailyResetDate) {
+    GUARDRAIL.dailyResetDate = today;
+    GUARDRAIL.dailyPnl = 0;
+    GUARDRAIL.consecutiveSLCount = 0;
+    GUARDRAIL.dailyStartBalance = STATE.balance; // その日の開始残高を基準として記録
+    addLog('info', `📅 日次ガードレールをリセットしました（開始残高: $${STATE.balance.toFixed(2)}）`);
+  }
+}
+
+function tripGuardrail(reason, autoRecoverable = false) {
+  GUARDRAIL.tripped = true;
+  GUARDRAIL.tripReason = reason;
+  STATE.running = false;
+  stopAutoScan();
+  // シミュレーションポジションの監視(tickPrices)を停止する。
+  // 注: 実弾ポジションのSL/TP/トレーリング判定はRailwayサーバー側で独立して動作しており、
+  // ガードレール発動中も継続する（保有中の資産を守るため。新規エントリーのみ停止）。
+  if (priceSimInterval) {
+    clearInterval(priceSimInterval);
+    priceSimInterval = null;
+  }
+
+  // ネットワーク異常など一時的な障害は自動復帰対象。
+  // 取引上の問題（日次損失・連続SL・APIエラー・スリッページ・残高不一致）は引き続き手動解除を要求する。
+  GUARDRAIL.autoRecoverable = autoRecoverable;
+
+  addLog('warn', `🛑🛑 ガードレール発動: ${reason} — システムを緊急停止しました（既存ポジションの監視も停止。Bitgetアプリで実際の保有状況を直接確認してください）`);
+  showToast(`緊急停止: ${reason}`, 'warn');
+
+  const banner = document.getElementById('guardrailBanner');
+  if (banner) {
+    banner.style.display = 'block';
+    if (autoRecoverable) {
+      banner.innerHTML = `🛑 緊急停止中: ${reason}<br>
+        ネットワーク異常のため自動復帰を試みています…<br>
+        <button onclick="resetGuardrail()" style="margin-top:8px;background:#fff;color:var(--red);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;font-size:11px">今すぐ手動で解除する</button>`;
+    } else {
+      banner.innerHTML = `🛑 緊急停止中: ${reason}<br>
+        ポジション監視も停止しています。Bitgetアプリで実際の保有状況を直接確認してください。<br>
+        <button onclick="resetGuardrail()" style="margin-top:8px;background:#fff;color:var(--red);border:none;padding:6px 12px;border-radius:6px;font-weight:bold;font-size:11px">確認して再開する</button>`;
+    }
+  }
+
+  // 自動復帰対象の場合、バックグラウンドでサーバー復活を定期的に確認する
+  if (autoRecoverable) {
+    if (GUARDRAIL.autoRecoveryTimer) clearInterval(GUARDRAIL.autoRecoveryTimer);
+    GUARDRAIL.autoRecoveryTimer = setInterval(tryAutoRecovery, 15000); // 15秒ごとに確認
+  }
+}
+
+// サーバーへの疎通を確認し、復活していれば自動的にガードレールを解除する
+async function tryAutoRecovery() {
+  if (!GUARDRAIL.tripped || !GUARDRAIL.autoRecoverable) {
+    clearInterval(GUARDRAIL.autoRecoveryTimer);
+    GUARDRAIL.autoRecoveryTimer = null;
+    return;
+  }
+  try {
+    const res = await fetch(SERVER_URL + '/health', { signal: AbortSignal.timeout(8000) });
+    if (res.ok) {
+      // サーバーが復活した → 自動復帰
+      clearInterval(GUARDRAIL.autoRecoveryTimer);
+      GUARDRAIL.autoRecoveryTimer = null;
+      addLog('info', '🔄 サーバーへの接続を確認。自動復帰します…');
+      resetGuardrail();
+      // スキャンも自動で再開する（ネットワーク異常限定の自動復帰なので）
+      if (STATE.settings.autoEntry !== false) {
+        STATE.running = true;
+        startAutoScan();
+        const sw = document.getElementById('masterSw');
+        if (sw) sw.classList.add('on');
+        addLog('info', '▶ スキャンを自動的に再開しました');
+        showToast('サーバー復活 — 自動再開しました', 'info');
+      }
+    }
+  } catch(e) {
+    // まだ復活していない — 次の15秒後に再試行（ログは出さず静かに待つ）
+  }
+}
+
+// ガードレール解除（人間が状況確認した上で明示的にリセットする）
+function resetGuardrail() {
+  GUARDRAIL.tripped = false;
+  GUARDRAIL.tripReason = '';
+  GUARDRAIL.autoRecoverable = false;
+  if (GUARDRAIL.autoRecoveryTimer) {
+    clearInterval(GUARDRAIL.autoRecoveryTimer);
+    GUARDRAIL.autoRecoveryTimer = null;
+  }
+  GUARDRAIL.consecutiveSLCount = 0;
+  GUARDRAIL.consecutiveApiErrors = 0;
+  GUARDRAIL.lastSuccessfulPing = Date.now();
+  const banner = document.getElementById('guardrailBanner');
+  if (banner) banner.style.display = 'none';
+  // 保有中ポジションがあれば、価格監視(利確/SL/トレーリング)だけは再開する。
+  // 新規スキャン・自動エントリーは▶ボタンを押すまで再開しない（安全側）。
+  const hasPosition = STATE.positions.some(p => p);
+  if (hasPosition) {
+    startPriceSim();
+    addLog('info', '✅ ガードレールを解除しました。保有ポジションの価格監視を再開しました（新規スキャンは▶を押すまで停止中）');
+  } else {
+    addLog('info', '✅ ガードレールを解除しました（システムは停止中のまま。再開には▶を押してください）');
+  }
+  showToast('ガードレール解除', 'info');
+}
+
+// 実弾モードのAPI呼び出しで使う共通ラッパー。エラー連発・ネットワーク断絶を検知する。
+async function liveApiCall(url, options) {
+  try {
+    const res = await fetch(url, options);
+    GUARDRAIL.lastSuccessfulPing = Date.now();
+    if (!res.ok) {
+      GUARDRAIL.consecutiveApiErrors++;
+      GUARDRAIL.lastApiErrorTime = Date.now();
+      const text = await res.text().catch(() => '');
+      checkApiErrorGuardrail();
+      // サーバーが構造化されたJSONエラー({success,code,error})を返している場合はそれを優先的に使う。
+      // 単純な文字列マッチに頼らず、codeフィールドで判定できるようにする。
+      let parsedCode = null, parsedError = null;
+      try { const j = JSON.parse(text); parsedCode = j.code || null; parsedError = j.error || null; } catch(_) {}
+      const e = new Error(parsedError || `HTTP ${res.status}: ${text.slice(0,200)}`);
+      e.code = parsedCode;
+      throw e;
+    }
+    const json = await res.json();
+    if (json && json.success === false) {
+      GUARDRAIL.consecutiveApiErrors++;
+      GUARDRAIL.lastApiErrorTime = Date.now();
+      checkApiErrorGuardrail();
+      const e = new Error(json.error || 'APIエラー');
+      e.code = json.code || null;
+      throw e;
+    }
+    // 成功したらエラーカウントをリセット
+    GUARDRAIL.consecutiveApiErrors = 0;
+    return json;
+  } catch(e) {
+    GUARDRAIL.consecutiveApiErrors++;
+    GUARDRAIL.lastApiErrorTime = Date.now();
+    checkApiErrorGuardrail();
+    throw e;
+  }
+}
+
+function checkApiErrorGuardrail() {
+  if (!GUARDRAIL.enableApiErrorGuardrail) return;
+  if (GUARDRAIL.tripped) return;
+  if (GUARDRAIL.consecutiveApiErrors >= GUARDRAIL.maxConsecutiveApiErrors) {
+    tripGuardrail(`Bitget APIエラーが${GUARDRAIL.consecutiveApiErrors}回連続発生`);
+  }
+}
+
+// サーバーとの通信が一定時間途絶えていないかを定期確認する（ネットワーク断絶検知）
+function checkNetworkHealth() {
+  if (!GUARDRAIL.enableNetworkHealthGuardrail) return;
+  if (GUARDRAIL.tripped) return;
+  if (!LIVE_TRADING || APP_MODE !== 'FULL') return; // 実弾モード時のみ監視
+  // ポジション保有中でなければ、実弾系APIが呼ばれず通信が発生しないのは正常な状態。
+  // 誤検知を避けるため、ポジションが無い間はこのチェックをスキップする。
+  const hasLivePosition = STATE.positions.some(p => p && p.isLive);
+  if (!hasLivePosition) { GUARDRAIL.lastSuccessfulPing = Date.now(); return; }
+  const sinceLastPing = Date.now() - GUARDRAIL.lastSuccessfulPing;
+  if (sinceLastPing > GUARDRAIL.networkTimeoutMs) {
+    tripGuardrail(`サーバーとの通信が${Math.round(sinceLastPing/1000)}秒間確認できません（ネットワーク異常の可能性）`, true);
+  }
+}
+setInterval(checkNetworkHealth, 10000); // 10秒ごとに確認
+
+// 画面がバックグラウンド化(リモートデスクトップ切断やタブ非表示等)されると、
+// ブラウザによってsetIntervalの実行が大幅にスロットリング・停止されることがある。
+// 画面が再びアクティブになった瞬間に、最終ping時刻を強制更新し、
+// 監視系タイマーが止まっていないか再確認する。
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    addLog('info', '👁 画面がアクティブになりました — 通信状態を再確認します');
+    // バックグラウンド中の経過時間を「無通信」として誤検知しないよう、pingを一旦リセット
+    GUARDRAIL.lastSuccessfulPing = Date.now();
+    // ポジション監視タイマーが何らかの理由で止まっていれば再起動する
+    const hasPosition = STATE.positions.some(p => p);
+    if (hasPosition && !priceSimInterval) {
+      startPriceSim();
+      addLog('info', '🔄 ポジション監視タイマーを再起動しました');
+    }
+    // 実際にサーバーへ疎通確認を行い、結果をログに残す
+    fetch(SERVER_URL + '/health', { signal: AbortSignal.timeout(8000) })
+      .then(res => {
+        if (res.ok) addLog('info', '✅ サーバーへの接続を確認しました');
+      })
+      .catch(() => addLog('warn', '⚠ サーバーへの接続を確認できませんでした'));
+  }
+});
+
+// 実弾モード時、Bitgetの実残高を定期的に取得し整合性を確認する（不正な状態を早期検出するため）
+setInterval(() => {
+  if (LIVE_TRADING && APP_MODE === 'FULL') fetchRealBalance();
+}, 60000); // 60秒ごと
+
+// 待機用ユーティリティ（スキャン処理の各ステップ間で使用）
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function detectMode() {
+  await checkServerConnection();
+}
+
+let lastLoggedBalance = null; // 前回ログに出した残高（変化検知用）
+
+// ── サーバー側ポジション監視との同期 ──
+// 実弾モードでは、SL/TP/トレーリングの判定・決済はRailwayサーバー側で自律的に行われる。
+// フロントはここでサーバーの状態を定期的に取得し、画面表示にだけ反映する（操作はしない）。
+// (lastSyncedMonitorLogCountは廃止。lastSyncedLogTimeに置き換え済み)
+
+async function syncServerPositions() {
+  if (APP_MODE !== 'FULL') return; // 表示目的の同期はLIVE_TRADINGに依存させない
+  try {
+    const res = await fetch(SERVER_URL + '/api/monitor/positions', { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (!json.success) return;
+    json.positions.forEach((p, i) => {
+      if (p) {
+        // サーバー側の状態を表示用ポジションに変換する
+        STATE.positions[i] = {
+          sym: p.sym, name: p.sym, price: p.price, qty: p.qty, amount: p.amount,
+          tp: p.price * (1 + p.tp1Pct / 100), sl: p.sl,
+          openTime: new Date(p.openTime), pnl: (p.currentPrice - p.price) * p.qty,
+          pnlPct: p.pnlPct, currentPrice: p.currentPrice, highPrice: p.highPrice,
+          tp1Done: p.tp1Done, tp2Done: p.tp2Done,
+          aiScore: p.entryScore != null ? p.entryScore : (STATE.positions[i]?.aiScore || '—'),
+          lastScore: p.lastScore, scoreUnderflowCount: p.scoreUnderflowCount || 0,
+          isLive: true,
+        };
+      } else if (STATE.positions[i]?.isLive) {
+        // サーバー側では既に決済済み（null）なのに、フロントにまだ残っている場合はクリアする
+        STATE.positions[i] = null;
+      }
+    });
+    renderPositions();
+    renderMetrics();
+  } catch(e) { /* 取得失敗時は前回の表示を維持 */ }
+}
+
+let lastSyncedLogTime = null; // 前回取得した最新ログの時刻（差分取得用）
+
+// サーバー側の決済ログを取得し、フロントのトレードログに反映する（新しいログのみ追記）
+async function syncServerMonitorLogs() {
+  if (APP_MODE !== 'FULL') return; // 表示目的の同期はLIVE_TRADINGに依存させない
+  try {
+    const url = SERVER_URL + '/api/monitor/logs' + (lastSyncedLogTime ? `?since=${encodeURIComponent(lastSyncedLogTime)}` : '?limit=100');
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (!json.success) return;
+    json.logs.forEach(l => {
+      addLog(l.type === 'sell' || l.type === 'buy' ? l.type : 'info', l.message);
+      // サーバー側の決済(SL・利確・トレーリング)による損益を、フロントのガードレールにも反映する
+      if (l.data && typeof l.data.pnl === 'number') {
+        registerTradeResult(l.data.pnl);
+      }
+      lastSyncedLogTime = l.time;
+    });
+  } catch(e) { /* 取得失敗時は何もしない */ }
+}
+
+setInterval(syncServerPositions, 5000);   // 5秒ごとにポジション状態を同期
+setInterval(syncServerMonitorLogs, 7000); // 7秒ごとに決済ログを同期
+
+// ── ダッシュボード統計の取得・表示（要件①⑧） ──
+// サーバー側(実弾・自律スキャン)の取引統計をキャッシュする。
+// renderMetrics()がフロントのSTATE.trades(シミュレーション用)だけでなく、
+// このサーバー統計も合算して表示できるようにするため。
+let serverTradeStats = null; // { totalTrades, winRate, totalPnl } | null(未取得)
+
+async function syncDashboardStats() {
+  if (APP_MODE !== 'FULL') return; // 表示目的の同期はLIVE_TRADINGに依存させない
+  try {
+    const res = await fetch(SERVER_URL + '/api/monitor/history?limit=500', { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (!json.success) return;
+    const history = json.history || [];
+
+    const card = document.getElementById('statsCard');
+    if (card) card.style.display = 'block';
+
+    const resetTimeEl = document.getElementById('statsResetTimeDisp');
+    if (resetTimeEl) {
+      resetTimeEl.textContent = json.statsResetAt
+        ? new Date(json.statsResetAt).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'})
+        : '全期間';
+    }
+
+    const wins   = history.filter(h => h.pnl >= 0);
+    const losses = history.filter(h => h.pnl < 0);
+    const avg = arr => arr.length ? arr.reduce((s,h)=>s+h.pnl,0) / arr.length : 0;
+    const maxWin  = wins.length   ? Math.max(...wins.map(h=>h.pnl))   : 0;
+    const maxLoss = losses.length ? Math.min(...losses.map(h=>h.pnl)) : 0;
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart  = new Date(todayStart); weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const sumSince = (dateFrom) => history
+      .filter(h => new Date(h.closed_at) >= dateFrom)
+      .reduce((s,h) => s + h.pnl, 0);
+
+    const setText = (id, text, color) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      if (color) el.style.color = color;
+    };
+    const pnlColor = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+    const fmtPnl = v => `${v >= 0 ? '+' : ''}$${v.toFixed(2)}`;
+
+    setText('statTotalTrades', json.stats.totalTrades);
+    setText('statWinRate', json.stats.winRate.toFixed(0) + '%');
+    setText('statAvgWin', fmtPnl(avg(wins)));
+    setText('statAvgLoss', fmtPnl(avg(losses)));
+    setText('statMaxWin', fmtPnl(maxWin));
+    setText('statMaxLoss', fmtPnl(maxLoss));
+
+    const todayPnl = sumSince(todayStart), weekPnl = sumSince(weekStart), monthPnl = sumSince(monthStart);
+    setText('statTodayPnl', fmtPnl(todayPnl), pnlColor(todayPnl));
+    setText('statWeekPnl',  fmtPnl(weekPnl),  pnlColor(weekPnl));
+    setText('statMonthPnl', fmtPnl(monthPnl), pnlColor(monthPnl));
+
+    // サーバー側(実弾)の取引統計をキャッシュし、renderMetrics()がこれを見て表示を上書きできるようにする。
+    // これが無いと、renderMetrics()がフロントのSTATE.trades(空)だけを見て「0トレード」と表示し続けてしまう。
+    const totalPnl = history.reduce((s,h)=>s+h.pnl,0);
+    serverTradeStats = { totalTrades: json.stats.totalTrades, winRate: json.stats.winRate, totalPnl };
+    renderMetrics();
+  } catch(e) { /* 取得失敗時は前回表示を維持 */ }
+}
+setInterval(syncDashboardStats, 10000); // 10秒ごとに統計を更新
+
+// サーバー側自律スキャンの状態を取得し、トグル表示に反映する
+let isServerAutoScanEnabled = false; // サーバー側自律スキャンが有効か(カウントダウン表示の切替に使う)
+let serverNextScanTime = null;       // サーバー側の次回スキャン予定時刻(ISO文字列)
+let serverLastScanTime = null;       // サーバー側の最終スキャン実行時刻(ISO文字列)
+let serverIntervalMin  = 5;          // サーバー側のスキャン間隔(分)。停止判定の基準に使う
+let frontendIsBackupRunning = false; // true: フロントのSTATE.runningは「サーバー停止検知による自動起動」由来
+                                       // (ユーザーが手動でスタートを押した場合はfalseのまま。これにより、
+                                       //  サーバー復旧時に「ユーザーの意図的な手動運用」を誤って止めないようにする)
+
+// サーバー側自律スキャンが「設定上ONだが、実際には動いていない」状態かどうかを判定する。
+// 想定される間隔の2倍以上、スキャンが実行されていなければ「停止している」とみなし、
+// フロント側がバックアップとして代わりにスキャンを行う。
+function isServerAutoScanStalled() {
+  if (!isServerAutoScanEnabled) return false; // そもそも自律スキャンがOFFなら「停止」の判定対象外
+  if (!serverLastScanTime) return false; // まだ一度もスキャン実績が無い(起動直後)場合は様子を見る
+  const elapsedMs = Date.now() - new Date(serverLastScanTime).getTime();
+  const staleThresholdMs = serverIntervalMin * 60 * 1000 * 2; // 想定間隔の2倍を超えたら停止と判断
+  return elapsedMs > staleThresholdMs;
+}
+
+async function syncAutoScanStatus() {
+  if (APP_MODE !== 'FULL') return;
+  try {
+    const res = await fetch(SERVER_URL + '/api/autoscan/settings', { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (!json.success) return;
+    const tog = document.getElementById('tog-autoscan');
+    const statusText = document.getElementById('autoScanStatusText');
+    const lastTimeEl = document.getElementById('autoScanLastTime');
+    if (tog) tog.classList.toggle('on', !!json.settings.autoScanEnabled);
+    if (lastTimeEl && json.lastScanTime) {
+      lastTimeEl.textContent = new Date(json.lastScanTime).toLocaleTimeString('ja-JP');
+    }
+    if (json.scanStats) {
+      const todayEl = document.getElementById('autoScanTodayCount');
+      const totalEl = document.getElementById('autoScanTotalCount');
+      if (todayEl) todayEl.textContent = `${json.scanStats.todayScans}回`;
+      if (totalEl) totalEl.textContent = `${json.scanStats.totalScans}回`;
+    }
+    // 「次回スキャン」カウントダウン表示・サーバー健全性判定用に、サーバー側の状態をキャッシュする
+    isServerAutoScanEnabled = !!json.settings.autoScanEnabled;
+    serverNextScanTime = json.nextScanTime || null;
+    serverLastScanTime = json.lastScanTime || null;
+    serverIntervalMin  = json.settings.intervalMin || 5;
+
+    // サーバー側自律スキャンが「設定上ONだが実際には停止している」場合、
+    // フロント側をバックアップとして自動的に起動する（フォローアップ）。
+    const stalled = isServerAutoScanStalled();
+    if (stalled && !STATE.running) {
+      addLog('warn', `⚠ サーバー側自律スキャンが${serverIntervalMin*2}分以上実行されていません。フロント側をバックアップとして起動します`);
+      showToast('サーバー停止を検知 — フロント側でバックアップ起動', 'warn');
+      frontendIsBackupRunning = true;
+      toggleSystem(); // STATE.running=trueにし、フロント側のスキャンを開始する
+    } else if (!stalled && frontendIsBackupRunning && STATE.running) {
+      // サーバーが復旧した（スキャンが再び正常な間隔で実行されている）ことを検知したら、
+      // バックアップとして自動起動していたフロント側のスキャンも自動的に停止する。
+      // (ユーザーが手動でスタートを押した場合はfrontendIsBackupRunning=falseのため、ここでは止めない)
+      addLog('info', '✅ サーバー側自律スキャンの復旧を検知しました。フロント側のバックアップ動作を停止します');
+      showToast('サーバー復旧を検知 — バックアップ動作を停止', 'info');
+      frontendIsBackupRunning = false;
+      toggleSystem(); // STATE.running=falseに戻す
+    }
+    if (statusText) {
+      if (stalled) {
+        statusText.textContent = '⚠ サーバー応答停止中（フロント側がバックアップ動作中）';
+        statusText.style.color = 'var(--red)';
+      } else if (json.settings.autoScanEnabled) {
+        statusText.textContent = 'ON（Railwayサーバー上で自律実行中）';
+        statusText.style.color = '';
+      } else {
+        statusText.textContent = 'OFF（携帯のブラウザでのみスキャン）';
+        statusText.style.color = '';
+      }
+    }
+  } catch(e) {
+    // サーバーへの接続自体が失敗した場合も、停止と同様にフロント側でバックアップする
+    if (isServerAutoScanEnabled && !STATE.running) {
+      addLog('warn', '⚠ サーバーへの接続が確認できません。フロント側をバックアップとして起動します');
+      showToast('サーバー接続エラー — フロント側でバックアップ起動', 'warn');
+      frontendIsBackupRunning = true;
+      toggleSystem();
+    }
+  }
+}
+setInterval(syncAutoScanStatus, 10000);
+
+// ページ読み込み時、サーバーに保存されている「スタート」「実弾モード」の状態を復元する。
+// これにより、アプリを完全に閉じて再度開いても、前回の状態が引き継がれる。
+async function restoreRunningStateFromServer() {
+  if (APP_MODE !== 'FULL') return;
+  try {
+    const res = await fetch(SERVER_URL + '/api/autoscan/settings', { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (!json.success) return;
+    const s = json.settings;
+
+    // 実弾モードの復元
+    if (s.liveTrading && !LIVE_TRADING) {
+      LIVE_TRADING = true;
+      const tog = document.getElementById('tog-live');
+      const statusText = document.getElementById('liveStatusText');
+      if (tog) tog.classList.add('on');
+      if (statusText) statusText.textContent = 'ON（Bitgetへ実注文を送信します）';
+      GUARDRAIL.lastSuccessfulPing = Date.now();
+      addLog('info', '🔄 サーバーに保存されていた実弾モード(ON)を復元しました');
+    }
+
+    // 「スタート」状態の復元
+    if (s.scanRunning && !STATE.running) {
+      STATE.running = true;
+      const sw   = document.getElementById('masterSw');
+      const pill = document.getElementById('sysPill');
+      const dot  = document.getElementById('sysDot');
+      const lbl  = document.getElementById('sysLabel');
+      if (sw)   sw.classList.add('on');
+      if (pill) pill.className = 'status-pill running';
+      if (dot)  dot.className = 'sdot r';
+      if (lbl)  lbl.textContent = 'RUNNING';
+      addLog('info', '🔄 サーバーに保存されていたスタート状態(RUNNING)を復元しました');
+      startAutoScan();
+    }
+
+    // 設定値（AIスコア閾値・RSI範囲・TP/SL・投入額%等）の復元
+    restoreSettingsFromServerData(s);
+  } catch(e) { /* 取得失敗時は復元しない（安全側：デフォルトのOFFのまま） */ }
+}
+
+// サーバーから取得した設定値を、STATE.settingsと各input要素の両方に反映する
+function restoreSettingsFromServerData(s) {
+  const map = {
+    aiThreshold: 'set-aithresh', rsiMin: 'set-rsimin', rsiMax: 'set-rsimax',
+    maxPos: 'set-maxpos', sizePercent: 'set-size', intervalMin: 'set-interval',
+    tp1Pct: 'set-tp1pct', tp1Sell: 'set-tp1sell', tp2Pct: 'set-tp2pct', tp2Sell: 'set-tp2sell',
+    trailingDrop: 'set-trail',
+  };
+  let restoredAny = false;
+  Object.keys(map).forEach(key => {
+    if (s[key] == null) return;
+    const settingsKey = key === 'intervalMin' ? 'interval' : key;
+    if (STATE.settings[settingsKey] !== s[key]) {
+      STATE.settings[settingsKey] = s[key];
+      restoredAny = true;
+    }
+    const el = document.getElementById(map[key]);
+    if (el) el.value = s[key];
+  });
+  // slPercentはスライダー(slSlider)専用の更新関数があるため個別に処理
+  if (s.slPercent != null && STATE.settings.slPercent !== s.slPercent) {
+    STATE.settings.slPercent = s.slPercent;
+    restoredAny = true;
+    const slider = document.getElementById('slSlider');
+    if (slider) slider.value = s.slPercent;
+    if (typeof updateSL === 'function') updateSL(s.slPercent);
+  }
+  if (restoredAny) {
+    addLog('info', '🔄 サーバーに保存されていた設定値を復元しました');
+    if (typeof updatePreview === 'function') updatePreview();
+    if (typeof updateTPRemain === 'function') updateTPRemain();
+  }
+}
+
+async function fetchRealBalance() {
+  try {
+    const r = await fetch(SERVER_URL + '/api/bitget/balance');
+    const d = await r.json();
+    if (d.success) {
+      GUARDRAIL.lastSuccessfulPing = Date.now();
+      if (LIVE_TRADING && APP_MODE === 'FULL') {
+        checkBalanceConsistency(d.balance);
+      } else {
+        STATE.balance = d.balance; renderMetrics();
+      }
+      // 残高に変化があった時だけログに出す（毎回同じ値が並んでログが埋まるのを防ぐ）
+      if (lastLoggedBalance === null || Math.abs(d.balance - lastLoggedBalance) >= 0.01) {
+        addLog('info', `Bitget残高: $${d.balance.toFixed(2)} USDT`);
+        lastLoggedBalance = d.balance;
+      }
+    }
+  } catch(e) {}
+}
+
+// 実弾モード時、Bitgetの実際のUSDT残高とフロントの想定残高を比較。
+// 大きくズレている場合は、何らかの不整合（手動操作、未反映の注文、バグ等）が起きている可能性があるため警告する。
+//
+// 重要: 実弾モードのSTATE.balanceは「現金部分」のみを表す値で、ポジションを保有している間は
+// 投入額が現金から出ている分だけ少なくなるのが正常な状態。そのため単純にrealBitgetBalanceと
+// STATE.balanceを比較すると、ポジションを持っているだけで常に「不一致」と誤検知してしまう。
+// 正しくは、直前にフロントが記録した「現金からの減少分(=保有ポジションへの投入額)」を考慮して、
+// それでも説明できないズレがあるかどうかで判定する。
+const BALANCE_MISMATCH_THRESHOLD_USDT = 2;   // この額以上ズレたら警告
+const BALANCE_MISMATCH_THRESHOLD_PCT  = 0.05; // または5%以上ズレたら警告
+function checkBalanceConsistency(realBitgetBalance) {
+  // 保有中の実弾ポジションへの投入額の合計（現金から出ているはずの金額）
+  const heldInLivePositions = STATE.positions.reduce((sum, p) => sum + (p && p.isLive ? p.amount : 0), 0);
+  // 「現金のみのはずの残高」から、ポジション投入額を考慮しない場合の単純比較ではなく、
+  // 実際にBitgetから見える残高(現金のみ)を正として、フロント側の値を直接合わせる。
+  // 不一致判定は「ポジション保有額を超えるズレ」があるかどうかで行う。
+  const diff = Math.abs(realBitgetBalance - STATE.balance);
+  // ポジション投入額相当のズレは正常な範囲として許容する
+  const unexplainedDiff = Math.max(0, diff - heldInLivePositions);
+  const pctDiff = STATE.balance > 0 ? unexplainedDiff / STATE.balance : (unexplainedDiff > 0 ? 1 : 0);
+
+  if (unexplainedDiff > BALANCE_MISMATCH_THRESHOLD_USDT && pctDiff > BALANCE_MISMATCH_THRESHOLD_PCT) {
+    addLog('warn', `⚠ 残高不一致を検出: Bitget実残高 $${realBitgetBalance.toFixed(2)} / システム認識 $${STATE.balance.toFixed(2)} (差: $${diff.toFixed(2)}, 保有ポジション分$${heldInLivePositions.toFixed(2)}を考慮しても説明できない差: $${unexplainedDiff.toFixed(2)})`);
+    showToast(`残高不一致を検出。確認してください`, 'warn');
+    // ポジションを保有していない状態でのズレは特に深刻（注文が未反映 or 手動操作の可能性）
+    if (GUARDRAIL.enableBalanceConsistencyGuardrail && STATE.positions.every(p => !p)) {
+      tripGuardrail(`ポジション無しの状態でBitget実残高とシステム認識額が$${diff.toFixed(2)}ズレています`);
+    }
+  }
+  // 実弾モードでは現金部分の残高表示はBitgetの実値で更新する
+  STATE.balance = realBitgetBalance;
+  renderMetrics();
+}
+
+async function fetchRealCoins() {
+  try {
+    // 急騰銘柄検出（Bitget全銘柄から出来高急増・価格変動銘柄を抽出）
+    const r = await fetch(SERVER_URL + '/api/bitget/surge?limit=30');
+    const d = await r.json();
+    if (d.success && d.coins.length) {
+      Object.keys(COINS).forEach(k => delete COINS[k]);
+      d.coins.forEach(c => {
+        COINS[c.symbol] = {
+          price:c.price, name:c.name, listAge:0,
+          vol24h:c.vol24h, change24h:c.change24h, occupancy:c.occupancy,
+          rsi:c.rsi, macdCross:c.macdCross, fullMatch:c.fullMatch, approaching:c.approaching, macdState:c.macdState,
+          hourlyTrend:c.hourlyTrend,
+          macdHistogram:c.macdHistogram, macdPrevHist:c.macdPrevHist, macdHistTrend:c.macdHistTrend,
+          bidDepth:0, askDepth:0, top10:null, lpLock:null
+        };
+      });
+      document.getElementById('mScanCount').textContent = d.coins.length;
+      const syms = d.coins.slice(0,5).map(c=>c.symbol).join(', ');
+      addLog('info', '急騰銘柄検出: ' + d.coins.length + '件 (' + syms + (d.coins.length>5?'...':'') + ')');
+      return true;
+    }
+    addLog('warn', '急騰銘柄なし');
+    return false;
+  } catch(e) {
+    addLog('warn', '急騰銘柄検出失敗: ' + e.message);
+    return false;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+const STATE = {
+  running: false,
+  balance: 1000,       // USDT (demo)
+  positions: [null, null],
+  trades: [],
+  scanTimer: null,
+  scanCountdown: 300,
+  logs: [],
+  pendingOrder: null,
+  settings: {
+    // ── エントリー条件 ─────────────────────────────
+    maxListingAge : 24,    // スキャン間隔（急騰検出では未使用）
+    aiThreshold   : 75,    // AIスコア閾値（急騰銘柄は高めに）
+    rsiMin        : 45,    // RSI下限（過熱・低迷を除外）
+    rsiMax        : 65,    // RSI上限（過熱前）
+    volMultiple   : 1.5,   // 出来高倍率（急騰検出: 1.5倍以上）
+    minLiquidity  : 100000,// 最低流動性 $
+    // ── 損切り ────────────────────────────────────
+    slPercent     : -6,    // ストップロス %（タイトに）
+    // ── 段階利確 ──────────────────────────────────
+    tp1Pct        : 12,    // 利確① 達成率 %（急騰銘柄は早めに）
+    tp1Sell       : 50,    // 利確① 売却比率 %
+    tp2Pct        : 20,    // 利確② 達成率 %
+    tp2Sell       : 25,    // 利確② 売却比率 %
+    trailingDrop  : 8,     // 残り: 高値から-N%でトレーリング決済（厳しめ）
+    // ── 運用 ──────────────────────────────────────
+    maxPos        : 2,
+    sizePercent   : 30,    // 急騰銘柄はリスク分散で30%
+    interval      : 5,
+    autoEntry     : true,
+    autoTP        : true,
+    autoSL        : true,
+    aiFilter      : true,
+  },
+};
+
+// vol24h: 24時間出来高(USDT), bidDepth/askDepth: 板の厚み($), top10: 上位10ウォレット保有率(%), lpLock: LPロック率(%)
+// DEMOモードはリアル(FULL)移行前のリハーサル用途のため、本番スキャン規模(20-30銘柄)に合わせている
+const COINS = {
+  TURBO:   { price:0.00832,   name:'Turbo',       listAge:6,  vol24h:312e6,  bidDepth:48e3,  askDepth:52e3,  top10:31, lpLock:0  },
+  MOODENG: { price:0.1842,    name:'Moo Deng',    listAge:12, vol24h:189e6,  bidDepth:22e3,  askDepth:25e3,  top10:28, lpLock:0  },
+  PEPE:    { price:0.0000102, name:'Pepe',         listAge:30, vol24h:820e6,  bidDepth:310e3, askDepth:290e3, top10:18, lpLock:0  },
+  WIF:     { price:1.82,      name:'dogwifhat',   listAge:8,  vol24h:620e6,  bidDepth:180e3, askDepth:170e3, top10:22, lpLock:0  },
+  BOME:    { price:0.00804,   name:'Book of Meme',listAge:3,  vol24h:210e6,  bidDepth:65e3,  askDepth:70e3,  top10:35, lpLock:0  },
+  EIGEN:   { price:2.41,      name:'EigenLayer',  listAge:20, vol24h:98e6,   bidDepth:92e3,  askDepth:88e3,  top10:42, lpLock:85 },
+  LISTA:   { price:0.312,     name:'Lista DAO',   listAge:15, vol24h:45e6,   bidDepth:18e3,  askDepth:20e3,  top10:38, lpLock:92 },
+  ENA:     { price:0.086,     name:'Ethena',      listAge:0,  vol24h:38e6,   bidDepth:15e3,  askDepth:17e3,  top10:45, lpLock:0  },
+  LDO:     { price:0.296,     name:'Lido DAO',    listAge:0,  vol24h:42e6,   bidDepth:20e3,  askDepth:18e3,  top10:33, lpLock:0  },
+  ONDO:    { price:0.71,      name:'Ondo',        listAge:0,  vol24h:55e6,   bidDepth:25e3,  askDepth:24e3,  top10:40, lpLock:0  },
+  JUP:     { price:0.42,      name:'Jupiter',     listAge:0,  vol24h:31e6,   bidDepth:14e3,  askDepth:13e3,  top10:36, lpLock:0  },
+  PYTH:    { price:0.135,     name:'Pyth',        listAge:0,  vol24h:18e6,   bidDepth:9e3,   askDepth:8e3,   top10:48, lpLock:0  },
+  ICP:     { price:5.1,       name:'Internet Computer', listAge:0, vol24h:27e6, bidDepth:12e3, askDepth:11e3, top10:30, lpLock:0 },
+  KAS:     { price:0.094,     name:'Kaspa',       listAge:0,  vol24h:22e6,   bidDepth:10e3,  askDepth:9e3,   top10:25, lpLock:0  },
+  XPL:     { price:0.61,      name:'Plasma',      listAge:0,  vol24h:16e6,   bidDepth:7e3,   askDepth:7e3,   top10:50, lpLock:0  },
+  FET:     { price:0.78,      name:'Fetch.ai',    listAge:0,  vol24h:24e6,   bidDepth:11e3,  askDepth:10e3,  top10:29, lpLock:0  },
+  HBAR:    { price:0.198,     name:'Hedera',      listAge:0,  vol24h:20e6,   bidDepth:9e3,   askDepth:9e3,   top10:32, lpLock:0  },
+  GRASS:   { price:1.15,      name:'Grass',       listAge:0,  vol24h:13e6,   bidDepth:6e3,   askDepth:6e3,   top10:55, lpLock:0  },
+  AERO:    { price:0.82,      name:'Aerodrome',   listAge:0,  vol24h:19e6,   bidDepth:8e3,   askDepth:8e3,   top10:34, lpLock:0  },
+  ZEC:     { price:48.2,      name:'Zcash',       listAge:0,  vol24h:35e6,   bidDepth:16e3,  askDepth:15e3,  top10:27, lpLock:0  },
+  TIA:     { price:3.4,       name:'Celestia',    listAge:0,  vol24h:21e6,   bidDepth:10e3,  askDepth:9e3,   top10:38, lpLock:0  },
+  JTO:     { price:1.9,       name:'Jito',        listAge:0,  vol24h:14e6,   bidDepth:7e3,   askDepth:6e3,   top10:41, lpLock:0  },
+  BABY:    { price:0.052,     name:'BabylonChain',listAge:0,  vol24h:11e6,   bidDepth:5e3,   askDepth:5e3,   top10:60, lpLock:0  },
+  GWEI:    { price:0.0021,    name:'GWEI Token',  listAge:0,  vol24h:9e6,    bidDepth:4e3,   askDepth:4e3,   top10:65, lpLock:0  },
+};
+
+let liveChartInst = null;
+let pnlChartInst  = null;
+let priceSimInterval = null;
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  updateSL(STATE.settings.slPercent);
+  updatePreview();
+  updateTPRemain();
+  renderPositions();
+  renderMetrics();
+  buildLiveChart();
+  buildPnLChart();
+  renderHistory();
+  // ガードレール表示をJS側の実際の値で初期化（HTMLのハードコード値とのズレを防ぐ）
+  const grLoss = document.getElementById('grLossLimitDisp');
+  const grSl   = document.getElementById('grSlCountDisp');
+  const grApi  = document.getElementById('grApiErrDisp');
+  if (grLoss) grLoss.textContent = Math.abs(GUARDRAIL.dailyLossLimitPct);
+  if (grSl)   grSl.textContent   = GUARDRAIL.maxConsecutiveSL;
+  if (grApi)  grApi.textContent  = GUARDRAIL.maxConsecutiveApiErrors;
+  addLog('info', 'システム起動 — Bitget 現物取引モード');
+  addLog('info', 'Railwayサーバーに接続中...');
+  startCountdown();
+  detectMode();
+});
+
+// ════════════════════════════════════════════════════════════
+//  NAV
+// ════════════════════════════════════════════════════════════
+function goPage(name, el) {
+  document.querySelectorAll('.pg').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
+  document.getElementById('pg-' + name).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('wrap').scrollTop = 0;
+  if (name === 'history') buildPnLChart();
+}
+
+// ════════════════════════════════════════════════════════════
+//  SYSTEM TOGGLE
+// ════════════════════════════════════════════════════════════
+function toggleSystem() {
+  STATE.running = !STATE.running;
+  const sw   = document.getElementById('masterSw');
+  const pill = document.getElementById('sysPill');
+  const dot  = document.getElementById('sysDot');
+  const lbl  = document.getElementById('sysLabel');
+
+  sw.classList.toggle('on', STATE.running);
+  if (STATE.running) {
+    pill.className = 'status-pill running';
+    dot.className = 'sdot r';
+    lbl.textContent = 'RUNNING';
+    addLog('info', '🟢 自動トレードシステム 起動');
+    startAutoScan();
+    showToast('システム起動 — 自動スキャン開始', 'info');
+  } else {
+    pill.className = 'status-pill stopped';
+    dot.className = 'sdot s';
+    lbl.textContent = 'STOPPED';
+    addLog('warn', '🔴 システム停止');
+    stopAutoScan();
+    showToast('システム停止', 'sell');
+  }
+  // アプリを閉じても状態を保持するため、サーバー側にも保存する
+  syncScanRunningToServer(STATE.running);
+}
+
+// フロントの「スタート」状態を、サーバー側のSCAN_SETTINGS.scanRunningにも反映する
+async function syncScanRunningToServer(isRunning) {
+  if (APP_MODE !== 'FULL') return;
+  try {
+    await fetch(SERVER_URL + '/api/autoscan/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scanRunning: isRunning }),
+    });
+  } catch(e) { /* 失敗しても致命的ではない */ }
+}
+
+// ════════════════════════════════════════════════════════════
+//  SCAN — 4-STAGE WATERFALL FILTER
+//  Stage1: RSI → Stage2: MACD → Stage3: 出来高 → Stage4: Claude AI
+// ════════════════════════════════════════════════════════════
+let scanInterval = null;
+let scanInProgress = false; // 前回のスキャンが完了していない間は次のスキャンを開始しない
+let lastAICandidate = null;  // stores the coin that passed all 3 tech filters
+
+function startAutoScan() {
+  if (scanInterval) clearInterval(scanInterval);
+  runScan();
+  scanInterval = setInterval(runScan, STATE.settings.interval * 60 * 1000);
+}
+
+function stopAutoScan() {
+  if (scanInterval) clearInterval(scanInterval);
+}
+
+async function runScan() {
+  if (scanInProgress) {
+    addLog('warn', '⏭ 前回のスキャンがまだ完了していないため、今回のスキャンをスキップしました');
+    return;
+  }
+  scanInProgress = true;
+  try {
+    await runScanInner();
+  } finally {
+    scanInProgress = false;
+  }
+}
+
+async function runScanInner() {
+  const now = new Date().toLocaleTimeString('ja-JP');
+  document.getElementById('lastScanTime').textContent  = now + ' スキャン済';
+  const t2 = document.getElementById('lastScanTime2');
+  if (t2) t2.textContent = now;
+
+  resetPipeline();
+  document.getElementById('aiResultCard').style.display = 'none';
+  lastAICandidate = null;
+
+  const isFull = APP_MODE === 'FULL';
+  const modeTag = isFull ? '[リアルデータ]' : '[シミュ]';
+  addLog('info', `─── スキャン開始 (${now}) ${modeTag} ───`);
+
+  // FULLモード: Bitgetアナウンスから新規上場銘柄取得（株式トークン含む）
+  if (isFull) {
+    addLog('info', 'STEP1: 急騰銘柄を検出中...');
+    await fetchRealCoins();
+  }
+
+  const allCoins = Object.entries(COINS);
+  document.getElementById('pipeIn').textContent = allCoins.length;
+  setPipeActive('pipe1');
+  addLog('info', `STEP1: ${allCoins.length}銘柄を${isFull ? 'リアルデータ' : 'シミュレーション'}でスキャン中...`);
+
+  // ── STAGE 1〜3: サーバーが既に3指標で判定済みのデータを使用 ──
+  // （getSurgingCoinsがRSI/MACD/出来高占有率で厳選している。フロントでの再判定は行わない）
+  const rsiResults = [];
+  for (const [sym, coin] of allCoins) {
+    let rsi, macdObj, occupancy, fullMatch, macdState, hourlyTrend;
+
+    if (isFull) {
+      // サーバーから既に取得済みのデータを使用
+      rsi       = coin.rsi ?? null;
+      macdObj   = coin.macdHistogram != null ? {
+        isCross: coin.macdCross, histogram: coin.macdHistogram,
+        prevHist: coin.macdPrevHist, histTrend: coin.macdHistTrend
+      } : (coin.macdCross != null ? { isCross: coin.macdCross, histogram: coin.macdCross ? 1 : -1 } : null);
+      occupancy = coin.occupancy ?? null;
+      fullMatch = coin.fullMatch ?? null;
+      macdState = coin.macdState ?? null;
+      hourlyTrend = coin.hourlyTrend ?? 'unknown';
+    } else {
+      // DEMOモード: リアル(FULL)移行前のリハーサル用。
+      // 実機観察値に基づき本番と近い確率分布で生成する（楽観的になりすぎないよう調整）。
+      rsi       = Math.round(20 + Math.random() * 60); // 20-80（RSI45-65を高確率で満たすが範囲外も再現）
+      const occupancy_roll = Math.random();
+      occupancy = occupancy_roll < 0.15 ? +(0.03 + Math.random() * 0.22).toFixed(3)  // 15%の確率で占有率3%以上
+                                          : +(Math.random() * 0.03).toFixed(3);        // 85%は3%未満（本番の実態に近い）
+      const macd_roll = Math.random();
+      const isCross = macd_roll < 0.04;          // 4%の確率でゴールデンクロス直後
+      const approaching = !isCross && macd_roll < 0.10; // さらに6%の確率でクロス間近
+      const decelerating = !isCross && !approaching && macd_roll < 0.30; // 20%の確率で減速中(警戒シグナル)
+      macdState = isCross ? 'cross' : approaching ? 'approaching' : decelerating ? 'decelerating' : 'neutral';
+      macdObj   = { histogram: isCross || approaching ? Math.random()*0.001 : -(Math.random()*0.01), isCross };
+      fullMatch = isCross || approaching;
+      const hourly_roll = Math.random();
+      hourlyTrend = hourly_roll < 0.25 ? 'downtrend' : hourly_roll < 0.55 ? 'uptrend' : 'neutral';
+    }
+
+    // MACDはAIへの参考情報として渡すのみで、必須フィルターからは除外（占有率+RSIのみが必須条件）
+    // これにより「過去にクロスしたが既に減速中(高値圏)」の銘柄もAIに見せ、AI自身に高値掴みリスクを判断させる
+    const rsiPass  = rsi !== null && rsi >= STATE.settings.rsiMin && rsi <= STATE.settings.rsiMax;
+    const macdPass = true; // 必須条件としては常に通過（表示・AI判断用にfullMatch/macdStateを別途保持）
+    const volPass  = occupancy !== null && occupancy >= 0.03;
+
+    rsiResults.push({ sym, coin, rsi, macdObj, occupancy, fullMatch, macdState, hourlyTrend, pass: rsiPass, macdPass: rsiPass && macdPass, volPass: rsiPass && macdPass && volPass });
+  }
+
+  // RSI集計
+  const rsiPass = rsiResults.filter(r => r.pass);
+  document.getElementById('pipeRsiC').textContent = rsiPass.length + '/' + allCoins.length;
+  document.getElementById('pipeRsiN').textContent = rsiPass.length + '銘柄';
+  setPipePass('pipe1', 'arr1');
+  addLog('info', `RSI通過: ${rsiPass.length}/${allCoins.length}銘柄 — ${rsiPass.map(r=>r.sym).join(', ')}`);
+  renderFilterRows(rsiResults, null, null, null);
+  await sleep(300);
+
+  if (!rsiPass.length) {
+    addLog('warn', 'RSI通過銘柄なし → AI分析スキップ');
+    document.getElementById('scanResultCount').textContent = `全${allCoins.length} → RSI:0 → MACD:0 → 出来高:0 ${modeTag}`;
+    return;
+  }
+
+  // MACD集計
+  setPipeActive('pipe2');
+  const macdPass = rsiResults.filter(r => r.macdPass);
+  document.getElementById('pipeMacdC').textContent = macdPass.length + '/' + rsiPass.length;
+  document.getElementById('pipeMacdN').textContent = macdPass.length + '銘柄';
+  setPipePass('pipe2', 'arr2');
+  addLog('info', `MACD通過: ${macdPass.length}/${rsiPass.length}銘柄 — ${macdPass.map(r=>r.sym).join(', ')}`);
+  renderFilterRows(rsiResults, rsiResults, null, null);
+  await sleep(300);
+
+  if (!macdPass.length) {
+    addLog('warn', 'MACD通過銘柄なし → AI分析スキップ');
+    document.getElementById('scanResultCount').textContent = `全${allCoins.length} → RSI:${rsiPass.length} → MACD:0 → 出来高:0 ${modeTag}`;
+    return;
+  }
+
+  // 出来高集計
+  setPipeActive('pipe3');
+  const volPassList = rsiResults.filter(r => r.volPass);
+  document.getElementById('pipeVolC').textContent = volPassList.length + '/' + macdPass.length;
+  document.getElementById('pipeVolN').textContent = volPassList.length + '銘柄';
+  setPipePass('pipe3', 'arr3');
+  addLog('info', `出来高通過: ${volPassList.length}/${macdPass.length}銘柄 — ${volPassList.map(r=>r.sym).join(', ')}`);
+  renderFilterRows(rsiResults, rsiResults, rsiResults, null);
+  document.getElementById('scanResultCount').textContent =
+    `全${allCoins.length} → RSI:${rsiPass.length} → MACD:${macdPass.length} → 出来高:${volPassList.length} ${modeTag}`;
+
+  const firstSignal = volPassList[0] || macdPass[0] || rsiPass[0];
+  if (firstSignal) updateSignalsFromTech(firstSignal);
+  await sleep(300);
+
+  if (!volPassList.length) {
+    addLog('warn', '出来高通過銘柄なし → AI分析スキップ');
+    document.getElementById('pipeAiN').textContent = 'スキップ';
+    return;
+  }
+
+  // ── STAGE 4: Claude AI ──────────────────────────────────
+  // 優先順位: ①1時間足downtrendでない かつ MACD好条件(fullMatch) → ②MACD好条件のみ
+  // → ③1時間足downtrendでない銘柄 → ④それ以外(downtrend含む)。各段階内では占有率が高いものを選ぶ。
+  // 1時間足downtrend = 大局が下降中で、5分足の好条件は一時的な戻りの可能性が高いため優先度を下げる
+  const notDowntrend = r => r.hourlyTrend !== 'downtrend';
+  const bullish = r => r.fullMatch === true;
+  const tier1 = volPassList.filter(r => bullish(r) && notDowntrend(r));
+  const tier2 = volPassList.filter(r => bullish(r) && !notDowntrend(r));
+  const tier3 = volPassList.filter(r => !bullish(r) && notDowntrend(r));
+  const tier4 = volPassList.filter(r => !bullish(r) && !notDowntrend(r));
+  const candidates = tier1.length ? tier1 : tier2.length ? tier2 : tier3.length ? tier3 : tier4;
+  const best = candidates.sort((a,b) => (b.occupancy||0) - (a.occupancy||0))[0];
+  lastAICandidate = best;
+
+  const macdStateLabel = { cross:'GC↑', approaching:'接近中', continuing:'継続中', decelerating:'⚠減速中', neutral:'中立' }[best.macdState] || '—';
+  const hourlyLabel = { downtrend:'⚠1H下降', uptrend:'1H上昇', neutral:'1H中立' }[best.hourlyTrend] || '1H不明';
+  addLog('ai', `STEP4: Claude AI 分析開始 → ${best.sym} (RSI:${best.rsi?.toFixed(1)} MACD:${macdStateLabel} 占有率:${best.occupancy != null ? (best.occupancy*100).toFixed(1)+'%' : '?'} ${hourlyLabel})`);
+  setPipeActive('pipe4');
+  setChipState(best.sym, 'ai', 'ai-run');
+  renderFilterRows(rsiResults, rsiResults, rsiResults, best.sym);
+
+  document.getElementById('aiResultCard').style.display = 'block';
+  document.getElementById('aiResultSym').textContent = best.sym;
+  document.getElementById('aiResultBody').textContent = '🤖 Claude AI が分析中...';
+  document.getElementById('aiScore').textContent   = '…';
+  document.getElementById('aiVerdict').textContent = '…';
+  document.getElementById('aiConf').textContent    = '…';
+  document.getElementById('aiEntryBtn').style.display = 'none';
+
+  // サーバー側自律スキャンが有効かつ正常に動いている場合は、フロント側で独自にAI分析を行わない。
+  // (同じ銘柄に対して、フロントとサーバーが別々にClaude APIへ問い合わせると、
+  //  AI応答の揺らぎにより異なるスコアが出て混乱するため。情報源を1つに統一する)
+  // ただし、サーバーが停止・無応答の場合は、フロントがバックアップとして独自に分析・エントリーする。
+  if (isServerAutoScanEnabled && !isServerAutoScanStalled() && LIVE_TRADING && APP_MODE === 'FULL') {
+    await showServerAiVerdict(best.sym);
+  } else {
+    await callClaudeAI(best, rsiResults, rsiResults, volPassList);
+  }
+}
+
+// サーバー側自律スキャンが直近に判定した結果を取得し、表示するだけの処理（AI分析自体は行わない）
+async function showServerAiVerdict(sym) {
+  try {
+    const res = await fetch(SERVER_URL + '/api/autoscan/verdicts', { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (!json.success) throw new Error('取得失敗');
+    const match = json.verdicts.find(v => v.sym === sym || v.sym === sym.replace('USDT',''));
+    if (!match) {
+      document.getElementById('aiResultBody').textContent = 'サーバー側でこの銘柄の判定結果がまだありません（次のサーバースキャンをお待ちください）';
+      document.getElementById('aiScore').textContent = '—';
+      document.getElementById('aiVerdict').textContent = '—';
+      document.getElementById('aiConf').textContent = '—';
+      return;
+    }
+    renderAiResultDisplay(sym, match.text, match.score, match.verdict, match.conf);
+    addLog('ai', `Claude AI 判定(サーバー由来): ${sym} → ${match.verdict} (${match.score}/100, ${match.conf})`);
+  } catch(e) {
+    document.getElementById('aiResultBody').textContent = 'サーバーから判定結果を取得できませんでした: ' + e.message;
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  ON-CHAIN SCORE — 4指標を0〜100点でスコアリング
+//  各指標を独立スコア化してClaude AIに渡す
+// ════════════════════════════════════════════════════════════
+
+// ── Claude API call ───────────────────────────────────────
+// AI判定結果(score/verdict/conf/text)を画面に反映する共通処理。
+// サーバー自律スキャンの結果表示・フロント独自分析の結果表示、両方から呼ばれる。
+function renderAiResultDisplay(sym, text, score, verdict, conf) {
+  const verdictColor = verdict === 'BUY' ? 'var(--green)' : verdict === 'SKIP' ? 'var(--red)' : 'var(--gold)';
+  const confColor    = conf === 'HIGH' ? 'var(--green)' : conf === 'LOW' ? 'var(--red)' : 'var(--gold)';
+  const scoreColor   = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--gold)' : 'var(--red)';
+
+  document.getElementById('aiResultBody').textContent = text;
+  document.getElementById('aiScore').textContent   = score;
+  document.getElementById('aiScore').style.color   = scoreColor;
+  document.getElementById('aiVerdict').textContent = verdict;
+  document.getElementById('aiVerdict').style.color = verdictColor;
+  document.getElementById('aiConf').textContent    = conf;
+  document.getElementById('aiConf').style.color    = confColor;
+  document.getElementById('pipeAiN').textContent   = score + '点';
+
+  setPipePassColor('pipe4', verdict === 'BUY' ? 'var(--green)' : 'var(--purple)');
+  setChipState(sym, 'ai', verdict === 'BUY' ? 'ai-pass' : 'skip');
+}
+
+async function callClaudeAI(best, rsiR, macdR, volR) {
+  const coin = COINS[best.sym] || {};
+  const sym  = best.sym;
+
+  const occPct = best.occupancy != null ? (best.occupancy * 100).toFixed(1) : '?';
+  const fmtVol = (coin.vol24h||0) >= 1e9 ? ((coin.vol24h)/1e9).toFixed(1)+'B' : ((coin.vol24h||0)/1e6).toFixed(0)+'M';
+
+  try {
+    const res = await fetch(SERVER_URL + '/api/claude/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        symbol: sym,
+        techData: { price: coin.price, rsi: best.rsi, macd: best.macdObj, volRatio: best.occupancy, fullMatch: best.fullMatch, macdState: best.macdState, hourlyTrend: best.hourlyTrend },
+        onchainData: { change24h: coin.change24h, vol24h: coin.vol24h },
+        settings: STATE.settings,
+      })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || 'AI分析失敗');
+    const text = json.text || 'エラー';
+    const score   = json.score   ?? 60;
+    const verdict = json.verdict ?? 'HOLD';
+    const conf    = json.conf    ?? 'MEDIUM';
+
+    renderAiResultDisplay(sym, text, score, verdict, conf);
+
+    addLog('ai', `Claude AI 判定: ${sym} → ${verdict} (${score}/100, ${conf}) | 占有率${occPct}% 24H出来高$${fmtVol}`);
+
+    if (verdict === 'BUY' && score >= STATE.settings.aiThreshold) {
+      document.getElementById('aiEntryBtn').style.display = 'block';
+      addLog('buy', `✅ AIエントリーシグナル: ${sym} — スコア${score}`);
+      showToast(`${sym} BUYシグナル！ スコア: ${score}`, 'buy');
+      // 注: この経路(callClaudeAI)は自律スキャンOFFの時のみ呼ばれる(showServerAiVerdictに分岐済み)ため、
+      // サーバー側との重複を心配する必要はない。
+      if (!STATE.running) {
+        addLog('warn', `⏭ ${sym}: システム停止中のため自動エントリーをスキップ`);
+      } else if (!STATE.settings.autoEntry) {
+        addLog('warn', `⏭ ${sym}: 自動エントリー設定がOFFのためスキップ`);
+      } else {
+        const openCount = STATE.positions.filter(Boolean).length;
+        if (openCount >= STATE.settings.maxPos) {
+          addLog('warn', `⏭ ${sym}: ポジション上限(${STATE.settings.maxPos})到達のためスキップ (現在${openCount}件保有中: ${STATE.positions.filter(Boolean).map(p=>p.sym).join(', ')})`);
+        } else {
+          addLog('ai', `自動エントリー実行: ${sym}`);
+          await sleep(1000); // UI表示が一瞬反映されるための間（以前のsetTimeoutと同じ待ち時間）
+          await autoEnter({ sym, aiScore: score }); // runScanのロックが解除される前に完了させる(二重エントリー防止)
+        }
+      }
+    } else {
+      addLog('info', `${sym}: ${verdict} (${score}/100) — エントリーなし`);
+    }
+
+  } catch (e) {
+    document.getElementById('aiResultBody').textContent =
+      `Claude AI エラー: ${e.message}\n\nAPIキーを設定画面で確認してください。`;
+    addLog('warn', `Claude AI エラー: ${e.message}`);
+    setPipePassColor('pipe4', 'var(--red)');
+  }
+}
+
+
+// ── Render per-coin filter breakdown ─────────────────────
+let chipStates = {}; // sym -> { rsi, macd, vol, ai }
+
+function renderFilterRows(rsiR, macdR, volR, aiSym) {
+  chipStates = {};
+  const container = document.getElementById('scanList');
+  container.innerHTML = Object.keys(COINS).map(sym => {
+    const r1 = rsiR?.find(r => r.sym === sym);
+    const r2 = macdR?.find(r => r.sym === sym);
+    const r3 = volR?.find(r => r.sym === sym);
+    const coin = COINS[sym];
+
+    const rsiVal  = r1 ? r1.rsi   : null;
+    const macdState = r2 ? r2.macdState : null;
+    const volVal  = r3 ? r3.occupancy : null;
+
+    const rsiP  = r1?.pass;
+    const macdP = r2?.macdPass; // 必須条件としては常にtrue（参考情報化）
+    const volP  = r3?.volPass;
+    const isAI  = sym === aiSym;
+
+    const macdBullish = macdState === 'cross' || macdState === 'approaching' || macdState === 'continuing';
+    const rsiCls  = r1 == null ? 'skip' : rsiP  ? 'pass' : 'fail';
+    const macdCls = r2 == null || !rsiP ? 'skip' : (macdState === 'decelerating' ? 'fail' : macdBullish ? 'pass' : 'skip');
+    const volCls  = r3 == null || !macdP ? 'skip' : volP  ? 'pass' : 'fail';
+    const aiCls   = !volP ? 'skip' : isAI ? 'ai-run' : 'skip';
+
+    // Overall badge
+    let badge = '';
+    if (volP && isAI) badge = `<span style="font-family:'Orbitron',monospace;font-size:9px;color:var(--purple)">🤖 AI分析中</span>`;
+    else if (volP && macdState === 'decelerating') badge = `<span style="font-size:9px;color:var(--red)">⚠ 減速中(高値警戒)</span>`;
+    else if (volP && macdBullish) badge = `<span style="font-family:'Orbitron',monospace;font-size:9px;color:var(--green)">✅ AI待機(好条件)</span>`;
+    else if (volP)    badge = `<span style="font-family:'Orbitron',monospace;font-size:9px;color:var(--gold)">AI待機(中立)</span>`;
+    else if (rsiP)    badge = `<span style="font-size:9px;color:var(--orange)">Vol落選</span>`;
+    else if (r1)      badge = `<span style="font-size:9px;color:var(--red)">RSI落選</span>`;
+    else              badge = `<span style="font-size:9px;color:var(--muted)">未スキャン</span>`;
+
+    chipStates[sym] = { rsiCls, macdCls, volCls, aiCls };
+
+    const chgDisp = coin.occupancy != null
+      ? '占有率' + (coin.occupancy * 100).toFixed(1) + '%'
+      : (coin.change24h != null
+        ? (coin.change24h >= 0 ? '+' : '') + (coin.change24h * 100).toFixed(1) + '%'
+        : (coin.listAge != null ? coin.listAge + 'H前上場' : '—'));
+    return `<div class="filter-row" id="row-${sym}">
+      <div class="filter-row-head">
+        <span class="fr-sym">${sym}</span>
+        <span class="fr-age">${chgDisp}</span>
+        <span class="fr-result">${badge}</span>
+      </div>
+      <div class="filter-stages" id="stages-${sym}">
+        <div class="fs-chip ${rsiCls}" id="chip-${sym}-rsi">
+          RSI<br>${rsiVal != null ? rsiVal : '—'}
+        </div>
+        <span class="fs-sep">▶</span>
+        <div class="fs-chip ${macdCls}" id="chip-${sym}-macd">
+          MACD<br>${macdState === 'cross' ? 'GC↑' : macdState === 'approaching' ? '接近中' : macdState === 'continuing' ? '継続中' : macdState === 'decelerating' ? '減速中' : macdState === 'neutral' ? '中立' : '—'}
+        </div>
+        <span class="fs-sep">▶</span>
+        <div class="fs-chip ${volCls}" id="chip-${sym}-vol">
+          占有率<br>${volVal != null ? (volVal*100).toFixed(1) + '%' : '—'}
+        </div>
+        <span class="fs-sep">▶</span>
+        <div class="fs-chip ${aiCls}" id="chip-${sym}-ai">
+          AI<br>${isAI ? '…' : '—'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setChipState(sym, stage, cls) {
+  const el = document.getElementById(`chip-${sym}-${stage}`);
+  if (el) el.className = `fs-chip ${cls}`;
+}
+
+// ── Pipeline visual helpers ───────────────────────────────
+function resetPipeline() {
+  ['pipe1','pipe2','pipe3','pipe4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = id === 'pipe4' ? 'pipe-stage pipe-ai' : 'pipe-stage';
+  });
+  ['arr1','arr2','arr3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.className = 'pipe-arrow';
+  });
+  ['pipeRsiC','pipeMacdC','pipeVolC','pipeRsiN','pipeMacdN','pipeVolN','pipeAiN'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '—';
+  });
+}
+
+function setPipeActive(id) {
+  document.getElementById(id).classList.add('active');
+}
+
+function setPipePass(pipeId, arrId) {
+  const p = document.getElementById(pipeId);
+  p.classList.remove('active');
+  p.classList.add('pass');
+  if (arrId) document.getElementById(arrId).classList.add('lit');
+}
+
+function setPipePassColor(pipeId, color) {
+  const el = document.getElementById(pipeId);
+  el.classList.remove('active');
+  el.classList.add('ai-done');
+  const num = el.querySelector('.pipe-num');
+  if (num) { num.style.background = color; num.style.boxShadow = `0 0 12px ${color}`; }
+}
+
+// ── Update dashboard signals from tech + on-chain data ───
+function updateSignalsFromTech(r) {
+  if (!r) return;
+  const set = (id, val, pct, col) => {
+    const sv = document.getElementById('sv-' + id);
+    const sb = document.getElementById('sb-' + id);
+    if (sv) { sv.textContent = val; sv.style.color = col; }
+    if (sb) { sb.style.width = pct + '%'; sb.style.background = col; }
+  };
+  set('rsi',  r.rsi ?? '—', r.rsi ?? 0,
+      r.rsi >= STATE.settings.rsiMin && r.rsi <= STATE.settings.rsiMax ? 'var(--gold)' : 'var(--red)');
+  set('macd', r.macdObj?.isCross ? 'GC↑' : (r.macdObj ? 'BEAR↓' : '—'), r.macdObj?.isCross ? 80 : 20,
+      r.macdObj?.isCross ? 'var(--orange)' : 'var(--muted)');
+  set('vol',  r.occupancy != null ? (r.occupancy*100).toFixed(1) + '%' : '—',
+      r.occupancy != null ? Math.min(r.occupancy / 0.03 * 100, 100) : 0,
+      r.occupancy >= 0.03 ? 'var(--green)' : 'var(--muted)');
+  set('tech', r.volPass ? '3/3 通過' : r.macdPass ? '2/3' : '1/3',
+      r.volPass ? 100 : r.macdPass ? 66 : 33,
+      r.volPass ? 'var(--accent)' : 'var(--muted)');
+
+  const entryEl = document.getElementById('sv-entry');
+  if (entryEl) {
+    entryEl.textContent = r.volPass ? 'AI分析中' : 'WAIT';
+    entryEl.style.color = r.volPass ? 'var(--purple)' : 'var(--muted)';
+  }
+
+  if (r.sym) {
+    document.getElementById('chartTitle').textContent = `◈ ${r.sym} ライブチャート`;
+    buildLiveChart(r.sym);
+  }
+}
+
+// ── Entry from AI signal ──────────────────────────────────
+function entryFromAI() {
+  if (!lastAICandidate) return;
+  document.getElementById('manualSym').value = lastAICandidate.sym;
+  goPage('scan', document.querySelector('.ni:nth-child(2)'));
+  openConfirm('manual');
+}
+
+function updateCondDisplay() {} // legacy stub
+
+// Live-wire all setting inputs to update preview on change
+document.addEventListener('DOMContentLoaded', () => {
+  const ids = ['set-maxage','set-aithresh','set-rsimin','set-rsimax',
+               'set-volmul','set-liq','slSlider',
+               'set-tp1pct','set-tp1sell','set-tp2pct','set-tp2sell','set-trail'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
+      // temp-apply to STATE for preview
+      const tmpSave = { ...STATE.settings };
+      saveToState();
+      updatePreview();
+      updateTPRemain();
+    });
+  });
+});
+
+function saveToState() {
+  const s = STATE.settings;
+  const g = id => { const el=document.getElementById(id); return el ? el.value : null; };
+  if(g('set-maxage'))   s.maxListingAge = parseInt(g('set-maxage'))    || 72;
+  if(g('set-aithresh')) s.aiThreshold   = parseInt(g('set-aithresh'))  || 60;
+  if(g('set-rsimin'))   s.rsiMin        = parseInt(g('set-rsimin'))    || 35;
+  if(g('set-rsimax'))   s.rsiMax        = parseInt(g('set-rsimax'))    || 65;
+  if(g('set-volmul'))   s.volMultiple   = parseFloat(g('set-volmul'))  || 1.5;
+  if(g('set-liq'))      s.minLiquidity  = (parseFloat(g('set-liq'))||100)*1000;
+  if(g('slSlider'))     s.slPercent     = parseInt(g('slSlider'))      || -10;
+  if(g('set-tp1pct'))   s.tp1Pct        = parseInt(g('set-tp1pct'))    || 20;
+  if(g('set-tp1sell'))  s.tp1Sell       = parseInt(g('set-tp1sell'))   || 50;
+  if(g('set-tp2pct'))   s.tp2Pct        = parseInt(g('set-tp2pct'))    || 40;
+  if(g('set-tp2sell'))  s.tp2Sell       = parseInt(g('set-tp2sell'))   || 25;
+  if(g('set-trail'))    s.trailingDrop  = parseInt(g('set-trail'))     || 10;
+}
+
+// ════════════════════════════════════════════════════════════
+//  ORDERS
+// ════════════════════════════════════════════════════════════
+let orderInProgress = false; // 二重発注防止ロック
+
+// 約定価格が想定価格から大きく離れていないか確認する（異常なスリッページの検出）
+// 想定外の価格で約定した場合、相場の急変動・薄い板・APIの問題等が考えられるため警告する。
+const SLIPPAGE_WARN_PCT = 3;   // 3%以上のズレで警告ログ
+const SLIPPAGE_TRIP_PCT = 8;   // 8%以上のズレでガードレール発動（極端な異常とみなす）
+function checkSlippage(sym, expectedPrice, actualPrice, side) {
+  if (!expectedPrice || !actualPrice) return;
+  const slipPct = Math.abs((actualPrice / expectedPrice - 1) * 100);
+  if (slipPct >= SLIPPAGE_TRIP_PCT) {
+    addLog('warn', `⚠ ${sym} ${side}で異常なスリッページ検出 (想定$${expectedPrice.toFixed(6)} → 約定$${actualPrice.toFixed(6)}, ${slipPct.toFixed(1)}%差)`);
+    if (GUARDRAIL.enableSlippageGuardrail) {
+      tripGuardrail(`${sym} ${side}で異常なスリッページ検出 (想定$${expectedPrice.toFixed(6)} → 約定$${actualPrice.toFixed(6)}, ${slipPct.toFixed(1)}%差)`);
+    }
+  } else if (slipPct >= SLIPPAGE_WARN_PCT) {
+    addLog('warn', `⚠ ${sym} ${side}でスリッページ検出: 想定$${expectedPrice.toFixed(6)} → 約定$${actualPrice.toFixed(6)} (${slipPct.toFixed(1)}%差)`);
+  }
+}
+
+async function autoEnter(r) {
+  checkDailyReset();
+  if (GUARDRAIL.tripped) {
+    addLog('warn', `⏭ ガードレール発動中のため自動エントリーをスキップ: ${r.sym}`);
+    return;
+  }
+  // 同じ銘柄が既にポジションとして存在する場合は重複エントリーを防止
+  const alreadyHolding = STATE.positions.some(p => p && p.sym === r.sym);
+  if (alreadyHolding) {
+    addLog('warn', `⏭ ${r.sym} は既にポジション保有中のため自動エントリーをスキップ`);
+    return;
+  }
+  const slot = STATE.positions.findIndex(p => !p);
+  if (slot === -1) return;
+
+  if (orderInProgress) {
+    addLog('warn', `⏭ ${r.sym}: 別の注文処理中のためスキップ`);
+    return;
+  }
+  orderInProgress = true; // ここで即座にロック（実弾・シミュレーション両方を保護）
+  try {
+
+  const coin = COINS[r.sym];
+  const amount = r.amountOverride != null ? r.amountOverride : STATE.balance * (STATE.settings.sizePercent / 100);
+
+  if (LIVE_TRADING && APP_MODE === 'FULL') {
+    // ── 実弾モード: Bitgetへ実際に買い注文を送信 ──
+    addLog('info', `📤 実弾注文送信中: ${r.sym} ${amount.toFixed(2)} USDT`);
+    try {
+      const json = await liveApiCall(SERVER_URL + '/api/bitget/order/buy', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: r.sym, usdtAmount: amount.toFixed(2),
+          tp1Pct: STATE.settings.tp1Pct, tp1Sell: STATE.settings.tp1Sell,
+          tp2Pct: STATE.settings.tp2Pct, tp2Sell: STATE.settings.tp2Sell,
+          trailingDrop: STATE.settings.trailingDrop, slPercent: (r.slPercentOverride != null ? r.slPercentOverride : STATE.settings.slPercent),
+          aiScore: (typeof r.aiScore === 'number') ? r.aiScore : null,
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!json.filled) {
+        addLog('warn', `⚠ ${r.sym} 注文の約定確認ができませんでした (orderId:${json.orderId}) — Bitgetで直接確認してください`);
+        showToast(`${r.sym} 約定確認できず。Bitgetで確認してください`, 'warn');
+        return;
+      }
+      const price = json.priceAvg;
+      const qty   = json.baseVolume;
+      const realAmount = json.quoteVolume;
+      checkSlippage(r.sym, coin.price, price, 'BUY');
+      const tp = price * (1 + STATE.settings.tp1Pct / 100);
+      const sl = price * (1 + STATE.settings.slPercent / 100);
+
+      STATE.positions[slot] = {
+        sym: r.sym, name: coin.name, price, qty, amount: realAmount, tp, sl,
+        openTime: new Date(), pnl: 0, pnlPct: 0,
+        currentPrice: price, aiScore: r.aiScore || '—',
+        orderId: json.orderId, isLive: true,
+      };
+      renderPositions();
+      renderMetrics();
+      addLog('buy', `📗 [実弾]BUY ${r.sym} @ $${price.toFixed(6)} | 約定数量:${qty} | AI:${r.aiScore||'—'} | TP①:$${tp.toFixed(6)} SL:$${sl.toFixed(6)}`);
+      showToast(`✅ [実弾]${r.sym} エントリー完了`, 'buy');
+      recordHistoryOpen(slot);
+      startPriceSim(); // 重要: 実弾ポジションの価格監視タイマーを起動する（これが無いとSL/TP/トレーリングが一切動かず、ネットワーク監視のpingも更新されない）
+    } catch(e) {
+      addLog('warn', `❌ ${r.sym} 実弾注文エラー: ${e.message}`);
+      showToast(`${r.sym} 注文エラー: ${e.message}`, 'warn');
+    }
+    return;
+  }
+
+  // ── シミュレーションモード（DEMO/FULLどちらでもLIVE_TRADING=falseの場合）──
+  const price  = coin.price * (1 + (Math.random() - 0.5) * 0.01);
+  const qty    = amount / price;
+  const tp     = price * (1 + STATE.settings.tp1Pct / 100);
+  const sl     = price * (1 + (r.slPercentOverride != null ? r.slPercentOverride : STATE.settings.slPercent) / 100);
+
+  STATE.positions[slot] = {
+    sym: r.sym, name: coin.name, price, qty, amount, tp, sl,
+    openTime: new Date(), pnl: 0, pnlPct: 0,
+    currentPrice: price,
+    aiScore: r.aiScore || '—',
+    isLive: false,
+  };
+  STATE.balance -= amount;
+  renderPositions();
+  renderMetrics();
+  addLog('buy', `📗 BUY ${r.sym} @ $${price.toFixed(6)} | AI:${r.aiScore||'—'} | TP①:$${tp.toFixed(6)} SL:$${sl.toFixed(6)}`);
+  showToast(`✅ ${r.sym} エントリー完了`, 'buy');
+  recordHistoryOpen(slot);
+  startPriceSim();
+
+  } finally {
+    orderInProgress = false;
+  }
+}
+
+function openConfirm(type) {
+  const sym = document.getElementById('manualSym').value;
+  const amt = parseFloat(document.getElementById('manualAmt').value);
+  const sl  = parseFloat(document.getElementById('manualSL').value);
+  const coin = COINS[sym] || { price: 0.01, name: sym };
+  const price = coin.price * (1 + (Math.random() - 0.5) * 0.01);
+  const tp    = price * (1 + STATE.settings.tp1Pct / 100);
+  const slP   = price * (1 + sl / 100);
+  const qty   = amt / price;
+  const isLiveOrder = LIVE_TRADING && APP_MODE === 'FULL';
+
+  STATE.pendingOrder = { sym, name: coin.name, price, qty, amount: amt, tp, sl: slP, slPct: sl };
+  const alreadyHolding = STATE.positions.some(p => p && p.sym === sym);
+  document.getElementById('mTitle').textContent = `${sym} 買い注文 確認${isLiveOrder ? ' ⚠実弾' : ''}`;
+  document.getElementById('mDetail').innerHTML = `
+    ${isLiveOrder ? `<div class="row" style="color:var(--red);font-weight:bold">⚠ 実弾モード — 実際にBitgetへ注文が送信されます</div>` : ''}
+    ${alreadyHolding ? `<div class="row" style="color:var(--orange)">⚠ ${sym} は既にポジション保有中です</div>` : ''}
+    <div class="row"><span class="rk">コイン</span><span class="hl">${sym}</span></div>
+    <div class="row"><span class="rk">エントリー価格</span><span>$${price.toFixed(6)}${isLiveOrder ? '（参考、実際の約定価格と異なる場合があります）' : ''}</span></div>
+    <div class="row"><span class="rk">投入額</span><span>$${amt.toFixed(2)} USDT</span></div>
+    <div class="row"><span class="rk">数量</span><span>${qty.toFixed(2)}</span></div>
+    <div class="row"><span class="rk">利確ライン (3x)</span><span class="pos-txt">$${tp.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">損切りライン</span><span class="neg-txt">$${slP.toFixed(6)} (${sl}%)</span></div>`;
+  document.getElementById('modal').classList.add('open');
+}
+
+// ポジションを決済する。
+// 注意: 実弾モード(isLive)の自動SL/トレーリング判定はRailwayサーバー側(monitorTick)に移管済み。
+// この関数の実弾分岐は、現在「手動クローズ」操作からのみ呼ばれる（tickPricesの自動判定からは呼ばれない）。
+async function closePosition(slot, reason) {
+  const pos = STATE.positions[slot];
+  if (!pos) return;
+
+  if (pos.isLive && LIVE_TRADING && APP_MODE === 'FULL') {
+    addLog('info', `📤 実弾決済送信中: ${pos.sym} ${pos.qty}`);
+    try {
+      const json = await liveApiCall(SERVER_URL + '/api/bitget/order/sell', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: pos.sym, coinAmount: pos.qty }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!json.filled) {
+        addLog('warn', `⚠ ${pos.sym} 決済の約定確認ができませんでした (orderId:${json.orderId}) — Bitgetで直接確認してください`);
+        showToast(`${pos.sym} 決済の約定確認できず。Bitgetで確認してください`, 'warn');
+        return;
+      }
+      const exitPrice = json.priceAvg;
+      const proceeds  = json.quoteVolume;
+      checkSlippage(pos.sym, pos.currentPrice, exitPrice, 'SELL');
+      const pnl = proceeds - pos.amount;
+      const pnlPct = ((exitPrice / pos.price) - 1) * 100;
+      registerTradeResult(pnl);
+      finalizeHistory(slot, exitPrice, pnl, pnlPct, reason);
+      addLog(pnl >= 0 ? 'buy' : 'sell',
+        `${pnl >= 0 ? '📗' : '📕'} [実弾]SELL ${pos.sym} @ $${exitPrice.toFixed(6)} | P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct.toFixed(1)}%) [${reason}]`);
+      showToast(`${pos.sym} クローズ ${pnl >= 0 ? '✅ +' : '❌ '}$${Math.abs(pnl).toFixed(2)}`, pnl >= 0 ? 'buy' : 'sell');
+      STATE.positions[slot] = null;
+      // サーバー側の監視対象からも除外する（手動決済との重複監視を防ぐ）
+      fetch(SERVER_URL + '/api/monitor/clear', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: pos.sym }),
+      }).catch(() => {});
+      renderPositions();
+      renderMetrics();
+      renderHistory();
+    } catch(e) {
+      // サーバーが「保有数量が最小取引量未満」と判定した場合(code: BELOW_MIN_TRADE_AMOUNT)、
+      // これは多くの場合「保有数量がほぼゼロ(=既にBitget側で決済済み)」を意味する。
+      // エラーとして残し続けるのではなく、決済済みと判断してポジション表示を消す。
+      if (e.code === 'BELOW_MIN_TRADE_AMOUNT') {
+        addLog('info', `ℹ ${pos.sym} は既にBitget側で決済済みのようです（保有数量わずかのため売却不可）。ポジション表示を解消します`);
+        showToast(`${pos.sym} は既に決済済みのため表示を解消しました`, 'info');
+        STATE.positions[slot] = null;
+        fetch(SERVER_URL + '/api/monitor/clear', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: pos.sym }),
+        }).catch(() => {});
+        renderPositions();
+        renderMetrics();
+        renderHistory();
+      } else {
+        addLog('warn', `❌ ${pos.sym} 実弾決済エラー: ${e.message}`);
+        showToast(`${pos.sym} 決済エラー: ${e.message}`, 'warn');
+      }
+    }
+    return;
+  }
+
+  // ── シミュレーションモード ──
+  const exitPrice = pos.currentPrice;
+  const pnl = (exitPrice - pos.price) * pos.qty;
+  const pnlPct = ((exitPrice / pos.price) - 1) * 100;
+  const proceeds = pos.amount + pnl;
+  STATE.balance += proceeds;
+  registerTradeResult(pnl);
+  finalizeHistory(slot, exitPrice, pnl, pnlPct, reason);
+  addLog(pnl >= 0 ? 'buy' : 'sell',
+    `${pnl >= 0 ? '📗' : '📕'} SELL ${pos.sym} @ $${exitPrice.toFixed(6)} | P&L: ${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct.toFixed(1)}%) [${reason}]`);
+  showToast(`${pos.sym} クローズ ${pnl >= 0 ? '✅ +' : '❌ '}$${Math.abs(pnl).toFixed(2)}`, pnl >= 0 ? 'buy' : 'sell');
+  STATE.positions[slot] = null;
+  renderPositions();
+  renderMetrics();
+  renderHistory();
+}
+
+// ガードレール用の勝敗・損益記録。closePosition・利確①②から呼ばれる。
+function registerTradeResult(pnl) {
+  checkDailyReset();
+  GUARDRAIL.dailyPnl += pnl;
+  if (pnl < 0) {
+    GUARDRAIL.consecutiveSLCount++;
+  } else {
+    GUARDRAIL.consecutiveSLCount = 0;
+  }
+  // 日次損失率は「その日の開始残高」に対する割合で判定する（残高が増えても減っても、停止ラインが追従する）
+  const base = GUARDRAIL.dailyStartBalance > 0 ? GUARDRAIL.dailyStartBalance : STATE.balance;
+  const dailyPnlPct = base > 0 ? (GUARDRAIL.dailyPnl / base) * 100 : 0;
+  if (dailyPnlPct <= GUARDRAIL.dailyLossLimitPct) {
+    tripGuardrail(`1日の最大損失率(${GUARDRAIL.dailyLossLimitPct}%)に到達 (現在: ${dailyPnlPct.toFixed(1)}%, $${GUARDRAIL.dailyPnl.toFixed(2)})`);
+  } else if (GUARDRAIL.consecutiveSLCount >= GUARDRAIL.maxConsecutiveSL) {
+    tripGuardrail(`連続損切り${GUARDRAIL.consecutiveSLCount}回に到達`);
+  }
+}
+
+function manualClose(slot) {
+  const pos = STATE.positions[slot];
+  if (!pos) return;
+  document.getElementById('mTitle').textContent = `${pos.sym} クローズ確認`;
+  document.getElementById('mDetail').innerHTML = `
+    <div class="row"><span class="rk">コイン</span><span class="hl">${pos.sym}</span></div>
+    <div class="row"><span class="rk">現在価格</span><span>$${pos.currentPrice.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">エントリー価格</span><span>$${pos.price.toFixed(6)}</span></div>
+    <div class="row"><span class="rk">含み損益</span><span class="${pos.pnl >= 0 ? 'pos-txt' : 'neg-txt'}">${pos.pnl >= 0 ? '+' : ''}$${pos.pnl.toFixed(2)} (${pos.pnlPct.toFixed(1)}%)</span></div>`;
+  STATE.pendingOrder = { type: 'close', slot };
+  document.getElementById('mConfirmBtn').textContent = 'クローズする';
+  document.getElementById('modal').classList.add('open');
+}
+
+async function executeOrder() {
+  const o = STATE.pendingOrder;
+  closeModal();
+  if (!o) return;
+
+  if (o.type === 'close') {
+    closePosition(o.slot, '手動クローズ');
+    document.getElementById('mConfirmBtn').textContent = '実行する';
+    return;
+  }
+
+  if (o.type === 'resetStats') {
+    try {
+      const res = await fetch(SERVER_URL + '/api/monitor/reset-stats', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        addLog('info', '📊 統計集計をリセットしました');
+        showToast('統計集計をリセットしました', 'info');
+        serverTradeStats = null; // 古いキャッシュを破棄し、次回syncDashboardStatsで再取得させる
+        syncDashboardStats();
+      } else {
+        showToast('リセットに失敗しました', 'warn');
+      }
+    } catch(e) {
+      showToast('リセットに失敗しました: ' + e.message, 'warn');
+    }
+    STATE.pendingOrder = null;
+    document.getElementById('mConfirmBtn').textContent = '実行する';
+    return;
+  }
+
+  if (o.type === 'enableAutoScan') {
+    try {
+      await fetch(SERVER_URL + '/api/autoscan/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          autoScanEnabled: true, liveTrading: LIVE_TRADING,
+          aiThreshold: STATE.settings.aiThreshold, sizePercent: STATE.settings.sizePercent,
+          maxPos: STATE.settings.maxPos, slPercent: STATE.settings.slPercent,
+          tp1Pct: STATE.settings.tp1Pct, tp1Sell: STATE.settings.tp1Sell,
+          tp2Pct: STATE.settings.tp2Pct, tp2Sell: STATE.settings.tp2Sell,
+          trailingDrop: STATE.settings.trailingDrop,
+          intervalMin: STATE.settings.interval,
+        }),
+      });
+      document.getElementById('tog-autoscan').classList.add('on');
+      document.getElementById('autoScanStatusText').textContent = 'ON（Railwayサーバー上で自律実行中）';
+      addLog('info', '🟢 サーバー側自律スキャンをONにしました');
+      showToast('自律スキャン ON — 携帯を閉じても継続します', 'buy');
+    } catch(e) {
+      showToast('設定の更新に失敗しました: ' + e.message, 'warn');
+    }
+    STATE.pendingOrder = null;
+    document.getElementById('mConfirmBtn').textContent = '実行する';
+    return;
+  }
+
+  if (o.type === 'enableLive') {
+    LIVE_TRADING = true;
+    GUARDRAIL.lastSuccessfulPing = Date.now(); // ONになった瞬間を基準にする（OFF中の経過時間を誤検知しないようリセット）
+    document.getElementById('tog-live').classList.add('on');
+    document.getElementById('liveStatusText').textContent = 'ON（Bitgetへ実注文を送信します）';
+    addLog('warn', '🔴 実弾モードをONにしました — 以後のAI自動エントリーで実際にBitgetへ注文が送信されます');
+    showToast('⚠ 実弾モード ON', 'warn');
+    // サーバー側自律スキャンのliveTradingフラグも同期する
+    syncLiveTradingToServer(true);
+    STATE.pendingOrder = null;
+    document.getElementById('mConfirmBtn').textContent = '実行する';
+    return;
+  }
+
+  // 手動エントリー: autoEnterを再利用し、実弾/シミュレーションの分岐を一本化する
+  // (ユーザー指定の投入額・SL%をamountOverride/slPercentOverrideとして渡す)
+  await autoEnter({ sym: o.sym, aiScore: '手動', amountOverride: o.amount, slPercentOverride: o.slPct });
+  STATE.pendingOrder = null;
+}
+
+// ════════════════════════════════════════════════════════════
+//  PRICE MONITORING（シミュレーション／実弾共通）
+// ════════════════════════════════════════════════════════════
+function startPriceSim() {
+  if (priceSimInterval) return;
+  priceSimInterval = setInterval(tickPrices, 2000);
+}
+
+const positionLocks = {}; // スロットごとの処理中ロック（利確①②・SL・トレーリングの同時実行を防ぐ）
+
+async function fetchLivePrice(sym) {
+  try {
+    const res = await fetch(SERVER_URL + `/api/bitget/price/${sym}`, { signal: AbortSignal.timeout(8000) });
+    const json = await res.json();
+    if (json.success) {
+      GUARDRAIL.lastSuccessfulPing = Date.now(); // ネットワーク健全性の確認に使う
+      return json.price;
+    }
+    // success:falseの場合、何が失敗したかを残す（連続失敗の診断に使う）
+    addLog('warn', `⚠ ${sym} 価格取得失敗: ${json.error || 'unknown'}`);
+  } catch(e) {
+    addLog('warn', `⚠ ${sym} 価格取得エラー: ${e.message}`);
+  }
+  return null;
+}
+
+// 利確①②の部分決済を実行する（stage: 'tp1' | 'tp2'）
+// 注意: 実弾モード(isLive)のSL/TP/トレーリング判定は現在Railwayサーバー側(monitorTick)に完全移管されており、
+// tickPrices側でpos.isLive && isLiveModeの場合は早期continueするため、以下の実弾分岐は実質呼ばれない。
+// シミュレーションモードの動作のみ現役。誤って実弾ロジックとして再利用しないよう注意。
+async function executePartialTP(slot, stage) {
+  const pos = STATE.positions[slot];
+  if (!pos) return;
+  const s = STATE.settings;
+  const sellPct = stage === 'tp1' ? s.tp1Sell : s.tp2Sell;
+  const sellQty = pos.qty * (sellPct / 100);
+
+  if (pos.isLive && LIVE_TRADING && APP_MODE === 'FULL') {
+    addLog('info', `📤 実弾部分決済送信中: ${pos.sym} ${stage} ${sellQty}`);
+    try {
+      const json = await liveApiCall(SERVER_URL + '/api/bitget/order/sell', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: pos.sym, coinAmount: sellQty }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!json.filled) {
+        addLog('warn', `⚠ ${pos.sym} ${stage} 約定確認できず (orderId:${json.orderId})`);
+        return;
+      }
+      checkSlippage(pos.sym, pos.currentPrice, json.priceAvg, `${stage}決済`);
+      const profit = json.quoteVolume - (pos.price * json.baseVolume);
+      pos.qty    -= json.baseVolume;
+      pos.amount -= pos.price * json.baseVolume;
+      registerTradeResult(profit);
+
+      if (stage === 'tp1') {
+        pos.tp1Done = true;
+        const breakevenPrice = pos.price * 1.003; // 往復手数料(約0.2%)を考慮し+0.3%に設定
+        pos.sl = breakevenPrice;
+        addLog('buy', `🎯 [実弾]利確① ${pos.sym}: +${pos.pnlPct.toFixed(1)}% → ${sellPct}%売却 +$${profit.toFixed(2)}`);
+        addLog('info', `🔒 損切りライン引き上げ: ${pos.sym} → 建値+0.3% $${breakevenPrice.toFixed(6)} (手数料考慮の元本保護)`);
+        showToast(`${pos.sym} 利確①達成 損切りを建値に引き上げ`, 'buy');
+      } else {
+        pos.tp2Done = true;
+        const tp1Price = pos.price * (1 + s.tp1Pct / 100);
+        pos.sl = tp1Price;
+        addLog('buy', `🎯 [実弾]利確② ${pos.sym}: +${pos.pnlPct.toFixed(1)}% → ${sellPct}%売却 +$${profit.toFixed(2)}`);
+        addLog('info', `🔒 損切りライン引き上げ: ${pos.sym} → TP①価格 $${tp1Price.toFixed(6)} (+${s.tp1Pct}%)`);
+        showToast(`${pos.sym} 利確②達成 損切りをTP①に引き上げ`, 'buy');
+      }
+      renderPositions();
+      renderMetrics();
+    } catch(e) {
+      // 「最低取引量未満」エラーの場合、これ以上この段階の売却は実行不可能なことを意味する。
+      // 何もせず終わると次回サイクルで同じ判定を繰り返し続け、永久にポジションが片付かなくなる。
+      // そのためこの段階は「完了扱い」にして、SLライン引き上げ・次の段階に進めるようにする。
+      if (e.code === 'BELOW_MIN_TRADE_AMOUNT') {
+        if (stage === 'tp1') {
+          pos.tp1Done = true;
+          const breakevenPrice = pos.price * 1.003;
+          pos.sl = breakevenPrice;
+          addLog('warn', `⚠ ${pos.sym} 利確①の売却数量が最小取引量未満のためスキップしましたが、損切りラインは建値+0.3%に引き上げます`);
+        } else {
+          pos.tp2Done = true;
+          const tp1Price = pos.price * (1 + s.tp1Pct / 100);
+          pos.sl = tp1Price;
+          addLog('warn', `⚠ ${pos.sym} 利確②の売却数量が最小取引量未満のためスキップしましたが、損切りラインはTP①価格に引き上げます`);
+        }
+        showToast(`${pos.sym} ${stage}は数量不足でスキップ（SLラインは引き上げ済み）`, 'warn');
+        renderPositions();
+        renderMetrics();
+      } else {
+        addLog('warn', `❌ ${pos.sym} ${stage} 実弾決済エラー: ${e.message}`);
+      }
+    }
+    return;
+  }
+
+  // ── シミュレーションモード ──
+  const sellValue = sellQty * pos.currentPrice;
+  const profit    = (pos.currentPrice - pos.price) * sellQty;
+  STATE.balance  += sellValue;
+  pos.qty        -= sellQty;
+  pos.amount     -= pos.amount * (sellPct / 100);
+  registerTradeResult(profit);
+
+  if (stage === 'tp1') {
+    pos.tp1Done = true;
+    const breakevenPrice = pos.price * 1.003; // 往復手数料(約0.2%)を考慮し+0.3%に設定
+    pos.sl = breakevenPrice;
+    addLog('buy', `🎯 利確① ${pos.sym}: +${pos.pnlPct.toFixed(1)}% → ${sellPct}%売却 +$${profit.toFixed(2)}`);
+    addLog('info', `🔒 損切りライン引き上げ: ${pos.sym} → 建値+0.3% $${breakevenPrice.toFixed(6)} (手数料考慮の元本保護)`);
+    showToast(`${pos.sym} 利確①達成 損切りを建値に引き上げ`, 'buy');
+  } else {
+    pos.tp2Done = true;
+    const tp1Price = pos.price * (1 + s.tp1Pct / 100);
+    pos.sl = tp1Price;
+    addLog('buy', `🎯 利確② ${pos.sym}: +${pos.pnlPct.toFixed(1)}% → ${sellPct}%売却 +$${profit.toFixed(2)}`);
+    addLog('info', `🔒 損切りライン引き上げ: ${pos.sym} → TP①価格 $${tp1Price.toFixed(6)} (+${s.tp1Pct}%)`);
+    showToast(`${pos.sym} 利確②達成 損切りをTP①に引き上げ`, 'buy');
+  }
+  renderPositions();
+  renderMetrics();
+}
+
+async function tickPrices() {
+  let anyOpen = false;
+  const isLiveMode = LIVE_TRADING && APP_MODE === 'FULL';
+
+  for (let i = 0; i < STATE.positions.length; i++) {
+    const pos = STATE.positions[i];
+    if (!pos) continue;
+    anyOpen = true;
+
+    // 実弾モードのポジションは、SL/TP/トレーリングの判定・決済を全てサーバー側(syncServerPositions)に委任する。
+    // ここでは表示の更新だけ行い、二重決済を防ぐためフロント側からは一切注文を送らない。
+    if (pos.isLive && isLiveMode) {
+      continue;
+    }
+
+    if (positionLocks[i]) continue; // 既に決済処理中ならスキップ
+
+    try {
+    {
+      // シミュレーション: 5分足を模した価格のランダムウォーク
+      const drift = Math.random() > 0.42 ? 1 : -1;
+      const move  = 1 + drift * (Math.random() * 0.025);
+      pos.currentPrice *= move;
+    }
+
+    pos.pnl    = (pos.currentPrice - pos.price) * pos.qty;
+    pos.pnlPct = ((pos.currentPrice / pos.price) - 1) * 100;
+
+    // 最高値更新
+    if (!pos.highPrice || pos.currentPrice > pos.highPrice) {
+      pos.highPrice = pos.currentPrice;
+    }
+
+    const s = STATE.settings;
+
+    // ── SL チェック ──────────────────────────────────
+    if (s.autoSL && pos.currentPrice <= pos.sl) {
+      positionLocks[i] = true;
+      try {
+        addLog('warn', `🛑 SL発動: ${pos.sym} ${pos.pnlPct.toFixed(1)}%`);
+        await closePosition(i, `損切り(SL${s.slPercent}%)`);
+      } finally {
+        delete positionLocks[i];
+      }
+      continue;
+    }
+
+    if (!s.autoTP) continue;
+
+    // ── 利確① ────────────────────────────────────────
+    if (!pos.tp1Done && pos.pnlPct >= s.tp1Pct) {
+      positionLocks[i] = true;
+      try {
+        await executePartialTP(i, 'tp1');
+      } finally {
+        delete positionLocks[i];
+      }
+    }
+
+    // ── 利確② ────────────────────────────────────────
+    if (pos.tp1Done && !pos.tp2Done && pos.pnlPct >= s.tp2Pct) {
+      positionLocks[i] = true;
+      try {
+        await executePartialTP(i, 'tp2');
+      } finally {
+        delete positionLocks[i];
+      }
+    }
+
+    // ── トレーリングストップ（利確①②完了後）────────
+    if (pos.tp1Done && pos.tp2Done) {
+      const dropFromHigh = (pos.currentPrice / pos.highPrice - 1) * 100;
+      if (dropFromHigh <= -s.trailingDrop) {
+        positionLocks[i] = true;
+        try {
+          addLog('buy', `📉 トレーリング決済 ${pos.sym}: 高値から${dropFromHigh.toFixed(1)}% → 残り全量クローズ`);
+          await closePosition(i, `トレーリングST(-${s.trailingDrop}%)`);
+        } finally {
+          delete positionLocks[i];
+        }
+        continue;
+      }
+    }
+    } catch(e) {
+      // このポジションの処理で予期しない例外が起きても、他のポジションやsetIntervalの継続を妨げない
+      delete positionLocks[i];
+      addLog('warn', `⚠ ${pos.sym} の監視処理でエラー: ${e.message}`);
+    }
+  }
+
+  if (!anyOpen) {
+    clearInterval(priceSimInterval);
+    priceSimInterval = null;
+  } else {
+    renderPositions();
+    renderMetrics();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  RENDER
+// ════════════════════════════════════════════════════════════
+function renderPositions() {
+  for (let i = 0; i < 2; i++) {
+    const pos = STATE.positions[i];
+    const el  = document.getElementById('posSlot' + i);
+    if (!pos) {
+      el.innerHTML = `
+        <div class="pos-card empty">
+          <div class="pos-header">
+            <span style="font-family:'Orbitron',monospace;font-size:12px;color:var(--muted)">スロット ${i + 1}</span>
+            <span class="pos-badge pb-empty">EMPTY</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);text-align:center;padding:4px 0">ポジションなし</div>
+        </div>`;
+    } else {
+      const pnlC   = pos.pnl >= 0 ? 'pos-txt' : 'neg-txt';
+      const barC   = pos.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+      const barPct = Math.min(Math.max(pos.pnlPct, 0), 200) / 2;
+      const s      = STATE.settings;
+      const tp1Price = pos.price * (1 + s.tp1Pct / 100);
+      const tp2Price = pos.price * (1 + s.tp2Pct / 100);
+      const slPrice  = pos.price * (1 + s.slPercent / 100);
+      const highDrop = pos.highPrice ? ((pos.currentPrice / pos.highPrice - 1) * 100).toFixed(1) : '—';
+      const stage    = pos.tp2Done ? `TR残 (高値${highDrop}%)` : pos.tp1Done ? '利確①済 → ②待ち' : '監視中';
+      const stagCol  = pos.tp2Done ? 'var(--purple)' : pos.tp1Done ? 'var(--accent)' : 'var(--muted)';
+      el.innerHTML = `
+        <div class="pos-card open">
+          <div class="pos-header">
+            <span class="pos-sym">${pos.sym}${pos.isLive ? ' <span style="color:var(--red);font-size:10px;border:1px solid var(--red);border-radius:4px;padding:1px 4px">実弾</span>' : ''}</span>
+            <span class="pos-badge pb-open" style="color:${stagCol};border-color:${stagCol}">${stage}</span>
+          </div>
+          <div class="pos-grid">
+            <div class="pg-item"><div class="pg-lbl">エントリー</div><div class="pg-val">$${pos.price.toFixed(6)}</div></div>
+            <div class="pg-item"><div class="pg-lbl">現在値</div><div class="pg-val ${pnlC}">$${pos.currentPrice.toFixed(6)}</div></div>
+            <div class="pg-item"><div class="pg-lbl">損切り(-${s.slPercent*-1}%)</div><div class="pg-val neg-txt">$${slPrice.toFixed(6)}</div></div>
+            <div class="pg-item"><div class="pg-lbl">含み損益</div><div class="pg-val ${pnlC}">${pos.pnl>=0?'+':''}$${pos.pnl.toFixed(2)}<br><span style="font-size:10px">(${pos.pnlPct>=0?'+':''}${pos.pnlPct.toFixed(1)}%)</span></div></div>
+            <div class="pg-item"><div class="pg-lbl">AI スコア</div><div class="pg-val" style="color:var(--purple)">${pos.aiScore ?? '—'}${pos.lastScore != null && pos.lastScore !== pos.aiScore ? ` <span style="font-size:10px;color:${pos.scoreUnderflowCount > 0 ? 'var(--red)' : 'var(--muted)'}">→${pos.lastScore}${pos.scoreUnderflowCount > 0 ? `(${pos.scoreUnderflowCount}/2)` : ''}</span>` : ''}</div></div>
+          </div>
+          <!-- TP stage progress -->
+          <div style="margin-top:10px;display:grid;grid-template-columns:1fr 4px 1fr 4px 1fr;gap:3px;align-items:center">
+            <div style="background:${pos.tp1Done?'rgba(0,255,136,.15)':'var(--bg2)'};border:1px solid ${pos.tp1Done?'var(--green)':'var(--border)'};border-radius:5px;padding:5px;text-align:center">
+              <div style="font-size:8px;color:var(--muted)">利確①</div>
+              <div style="font-size:10px;color:${pos.tp1Done?'var(--green)':'var(--muted)'}">+${s.tp1Pct}% ${pos.tp1Done?'✅':'⏳'}</div>
+            </div>
+            <div style="height:1px;background:var(--border)"></div>
+            <div style="background:${pos.tp2Done?'rgba(0,229,255,.15)':'var(--bg2)'};border:1px solid ${pos.tp2Done?'var(--accent)':'var(--border)'};border-radius:5px;padding:5px;text-align:center">
+              <div style="font-size:8px;color:var(--muted)">利確②</div>
+              <div style="font-size:10px;color:${pos.tp2Done?'var(--accent)':'var(--muted)'}">+${s.tp2Pct}% ${pos.tp2Done?'✅':'⏳'}</div>
+            </div>
+            <div style="height:1px;background:var(--border)"></div>
+            <div style="background:${pos.tp2Done?'rgba(189,147,249,.15)':'var(--bg2)'};border:1px solid ${pos.tp2Done?'var(--purple)':'var(--border)'};border-radius:5px;padding:5px;text-align:center">
+              <div style="font-size:8px;color:var(--muted)">TR停</div>
+              <div style="font-size:10px;color:${pos.tp2Done?'var(--purple)':'var(--muted)'}">-${s.trailingDrop}% ${pos.tp2Done?'🔔':'⏳'}</div>
+            </div>
+          </div>
+          <div class="pnl-bar" style="margin-top:8px"><div class="pnl-fill" style="width:${barPct}%;background:${barC}"></div></div>
+          <div class="pos-actions">
+            <button class="pact sell" onclick="manualClose(${i})">手動クローズ</button>
+            <button class="pact edit" onclick="showToast('SL/TP変更は設定タブから', 'info')">設定確認</button>
+          </div>
+        </div>`;
+    }
+  }
+}
+
+function renderMetrics() {
+  // 実弾・サーバー側自律スキャンの場合、フロントのSTATE.trades(常に空)ではなく、
+  // サーバーから取得した実際の取引統計(serverTradeStats)を優先して表示する。
+  const useServerStats = LIVE_TRADING && APP_MODE === 'FULL' && serverTradeStats != null;
+
+  const totalPnL = useServerStats ? serverTradeStats.totalPnl : STATE.trades.reduce((s, t) => s + t.pnl, 0);
+  const wins  = useServerStats ? null : STATE.trades.filter(t => t.pnl > 0).length;
+  const total = useServerStats ? serverTradeStats.totalTrades : STATE.trades.length;
+  const winPct = useServerStats ? Math.round(serverTradeStats.winRate) : (total ? Math.round(wins / total * 100) : null);
+  const openPnL = STATE.positions.reduce((s, p) => s + (p ? p.pnl : 0), 0);
+  const totalAsset = STATE.balance + STATE.positions.reduce((s, p) => s + (p ? p.amount + p.pnl : 0), 0);
+
+  document.getElementById('mBalance').textContent = '$' + totalAsset.toFixed(2);
+  const pnlEl = document.getElementById('mPnL');
+  pnlEl.textContent = (totalPnL >= 0 ? '+' : '') + '$' + totalPnL.toFixed(2);
+  pnlEl.style.color = totalPnL >= 0 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('mPnLPct').textContent = total
+    ? (useServerStats ? `勝率${winPct}%` : `${wins}勝${total - wins}敗`)
+    : '未取引';
+  document.getElementById('mWinRate').textContent = winPct !== null ? winPct + '%' : '—';
+  document.getElementById('mTrades').textContent = total + 'トレード';
+  const free = STATE.positions.filter(p => !p).length;
+  document.getElementById('mFreeSlot').textContent = free + '/2';
+}
+
+// ════════════════════════════════════════════════════════════
+//  HISTORY
+// ════════════════════════════════════════════════════════════
+function recordHistoryOpen(slot) {
+  // placeholder — closed in finalizeHistory
+}
+
+function finalizeHistory(slot, exitPrice, pnl, pnlPct, reason) {
+  const pos = STATE.positions[slot];
+  STATE.trades.push({
+    sym: pos.sym,
+    entry: pos.price,
+    exit: exitPrice,
+    pnl,
+    pnlPct,
+    reason,
+    time: new Date(),
+  });
+}
+
+function renderHistory() {
+  const wins   = STATE.trades.filter(t => t.pnl > 0).length;
+  const losses = STATE.trades.filter(t => t.pnl <= 0).length;
+  const totalP = STATE.trades.filter(t => t.pnl > 0).reduce((s, t) => s + t.pnl, 0);
+  const totalL = STATE.trades.filter(t => t.pnl <= 0).reduce((s, t) => s + t.pnl, 0);
+  const winR   = STATE.trades.length ? Math.round(wins / STATE.trades.length * 100) : 0;
+
+  document.getElementById('hTotalProfit').textContent = '+$' + totalP.toFixed(2);
+  document.getElementById('hTotalLoss').textContent   = '-$' + Math.abs(totalL).toFixed(2);
+  document.getElementById('hWinRate').textContent     = STATE.trades.length ? winR + '%' : '—';
+  document.getElementById('hRecord').textContent      = `${wins}勝${losses}敗`;
+  document.getElementById('hCount').textContent       = STATE.trades.length + '件';
+
+  const histList = document.getElementById('histList');
+  if (!STATE.trades.length) {
+    histList.innerHTML = '<div style="text-align:center;color:var(--muted);padding:20px;font-size:11px">トレード履歴なし</div>';
+    return;
+  }
+  histList.innerHTML = [...STATE.trades].reverse().map(t => {
+    const dt = t.time ? new Date(t.time) : null;
+    const dateStr = dt ? dt.toLocaleDateString('ja-JP', {month:'2-digit',day:'2-digit'}) : '—';
+    const timeStr = dt ? dt.toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}) : '';
+    const pnlColor = t.pnl >= 0 ? 'var(--green)' : 'var(--red)';
+    return `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-bottom:1px solid var(--border);font-size:10px">
+      <span style="color:var(--muted);white-space:nowrap">${dateStr} ${timeStr}</span>
+      <span style="font-family:'Orbitron',monospace;color:var(--accent);font-weight:bold;white-space:nowrap">${t.sym}</span>
+      <span style="color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;text-align:center;padding:0 4px">${t.reason}</span>
+      <span style="font-weight:bold;color:${pnlColor};white-space:nowrap">${t.pnl >= 0 ? '+' : ''}$${t.pnl.toFixed(2)} (${t.pnlPct.toFixed(0)}%)</span>
+    </div>`;
+  }).join('');
+  buildPnLChart();
+}
+
+// ════════════════════════════════════════════════════════════
+//  CHARTS
+// ════════════════════════════════════════════════════════════
+function buildLiveChart(sym) {
+  const ctx = document.getElementById('liveChart').getContext('2d');
+  if (liveChartInst) liveChartInst.destroy();
+  const label = sym || 'DEMO';
+  const L = [], P = [], V = [];
+  let p = (COINS[sym] || { price: 0.01 }).price;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(); d.setMinutes(d.getMinutes() - 60 + i);
+    L.push(d.getHours() + ':' + String(d.getMinutes()).padStart(2,'0'));
+    p = p * (1 + (Math.random() - 0.46) * 0.04);
+    P.push(+p.toFixed(8));
+    V.push(+(Math.random() * 100 + 10).toFixed(1));
+  }
+  liveChartInst = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: L, datasets: [
+      { type: 'line', label: label, data: P, borderColor: '#00e5ff', borderWidth: 1.5, tension: 0.3, pointRadius: 0, yAxisID: 'y', fill: true, backgroundColor: 'rgba(0,229,255,0.04)' },
+      { type: 'bar', label: '出来高', data: V, backgroundColor: 'rgba(255,215,0,0.2)', yAxisID: 'y2' },
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+      scales: {
+        x: { grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#4a6a8a', maxTicksLimit: 8, font: { size: 8 } } },
+        y: { position: 'left', grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#00e5ff', font: { size: 8 }, maxTicksLimit: 5 } },
+        y2: { position: 'right', grid: { display: false }, ticks: { color: '#ffd700', font: { size: 8 }, maxTicksLimit: 3 } },
+      },
+      plugins: { legend: { display: false } },
+    }
+  });
+}
+
+function buildPnLChart() {
+  const ctx = document.getElementById('pnlChart');
+  if (!ctx) return;
+  if (pnlChartInst) pnlChartInst.destroy();
+  if (!STATE.trades.length) {
+    pnlChartInst = new Chart(ctx.getContext('2d'), {
+      type: 'line', data: { labels: ['開始'], datasets: [{ data: [0], borderColor: 'var(--muted)', fill: false, pointRadius: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#4a6a8a', font: { size: 8 } }, grid: { color: 'rgba(28,48,72,.4)' } }, y: { ticks: { color: '#4a6a8a', font: { size: 8 } }, grid: { color: 'rgba(28,48,72,.4)' } } } }
+    });
+    return;
+  }
+  let cumul = 0;
+  const labels = ['開始'];
+  const data   = [0];
+  STATE.trades.forEach((t, i) => {
+    cumul += t.pnl;
+    labels.push(t.sym);
+    data.push(+cumul.toFixed(2));
+  });
+  const colors = data.map((v, i) => i === 0 ? 'rgba(0,229,255,.5)' : v >= 0 ? 'rgba(0,255,136,.5)' : 'rgba(255,51,85,.5)');
+  pnlChartInst = new Chart(ctx.getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: '累積P&L', data,
+      borderColor: cumul >= 0 ? '#00ff88' : '#ff3355',
+      borderWidth: 2, tension: 0.3, fill: true,
+      backgroundColor: cumul >= 0 ? 'rgba(0,255,136,.07)' : 'rgba(255,51,85,.07)',
+      pointBackgroundColor: colors, pointRadius: 4,
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#4a6a8a', font: { size: 8 } } },
+        y: { grid: { color: 'rgba(28,48,72,.4)' }, ticks: { color: '#4a6a8a', font: { size: 8 } } },
+      },
+      plugins: { legend: { display: false } },
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  SETTINGS
+// ════════════════════════════════════════════════════════════
+function toggleSetting(el) { el.classList.toggle('on'); }
+
+// サーバー側自律スキャンのON/OFF切替（サーバーのSCAN_SETTINGSを更新する）
+// 統計集計のリセット（試験運用分を除外し、ここから新しく数え始める）
+function confirmResetStats() {
+  if (APP_MODE !== 'FULL') {
+    showToast('Railwayサーバーに接続できていません', 'warn');
+    return;
+  }
+  document.getElementById('mTitle').textContent = '📊 統計集計をリセット';
+  document.getElementById('mDetail').innerHTML = `
+    <div class="row" style="color:var(--gold);font-weight:bold">集計をリセットしますか？</div>
+    <div class="row" style="font-size:11px;line-height:1.6">
+      これより前の取引履歴は削除されず、サーバーには残ります。<br>
+      ダッシュボードの統計（総トレード数・勝率・損益等）だけが、今この瞬間からの取引のみを対象に再集計されます。
+    </div>`;
+  STATE.pendingOrder = { type: 'resetStats' };
+  document.getElementById('mConfirmBtn').textContent = 'リセットする';
+  document.getElementById('modal').classList.add('open');
+}
+
+async function confirmAutoScanToggle() {
+  const tog = document.getElementById('tog-autoscan');
+  const statusText = document.getElementById('autoScanStatusText');
+  if (APP_MODE !== 'FULL') {
+    showToast('Railwayサーバーに接続できていません', 'warn');
+    return;
+  }
+
+  let currentlyOn = tog.classList.contains('on');
+
+  if (currentlyOn) {
+    // OFFにする場合は即座に切り替え（安全側なので確認不要）
+    try {
+      await fetch(SERVER_URL + '/api/autoscan/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoScanEnabled: false }),
+      });
+      tog.classList.remove('on');
+      statusText.textContent = 'OFF（携帯のブラウザでのみスキャン）';
+      addLog('info', '🔴 サーバー側自律スキャンをOFFにしました');
+      showToast('自律スキャン OFF', 'info');
+    } catch(e) {
+      showToast('設定の更新に失敗しました: ' + e.message, 'warn');
+    }
+    return;
+  }
+
+  // ONにする場合は明確な二重確認
+  document.getElementById('mTitle').textContent = '🤖 サーバー側自律スキャンを有効化';
+  document.getElementById('mDetail').innerHTML = `
+    <div class="row" style="color:var(--gold);font-weight:bold">サーバー側自律スキャンをONにしますか？</div>
+    <div class="row" style="font-size:11px;line-height:1.6">
+      ONにすると、新規銘柄の検出・AI判定・自動エントリーがRailwayサーバー上で完全に自律実行されます。<br><br>
+      携帯の電源を切っても、リモートデスクトップを閉じても、新規の自動売買が継続します。<br><br>
+      AIスコア閾値: ${STATE.settings.aiThreshold}以上<br>
+      投入額: 残高の${STATE.settings.sizePercent}%<br>
+      最大同時保有: ${STATE.settings.maxPos}ポジション<br>
+      ${LIVE_TRADING ? '<span style="color:var(--red)">⚠ 実弾モードがONのため、実際にBitgetへ注文が送信されます</span>' : '実弾モードがOFFのため、サーバー側でも注文は送信されません（設定値の確認のみ）'}
+    </div>`;
+  STATE.pendingOrder = { type: 'enableAutoScan' };
+  document.getElementById('mConfirmBtn').textContent = '自律スキャンをONにする';
+  document.getElementById('modal').classList.add('open');
+}
+
+// 実弾モードのON/OFFを、サーバー側自律スキャンのliveTrading設定にも反映する
+async function syncLiveTradingToServer(isLive) {
+  if (APP_MODE !== 'FULL') return;
+  try {
+    await fetch(SERVER_URL + '/api/autoscan/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ liveTrading: isLive }),
+    });
+  } catch(e) { /* 失敗しても致命的ではない。次回の手動操作で再同期される */ }
+}
+
+function confirmLiveToggle() {
+  const tog = document.getElementById('tog-live');
+  const statusText = document.getElementById('liveStatusText');
+
+  if (LIVE_TRADING) {
+    // OFFにする場合は即座に切り替え（安全側なので確認不要）
+    LIVE_TRADING = false;
+    tog.classList.remove('on');
+    statusText.textContent = 'OFF（シミュレーションのみ）';
+    addLog('info', '🔒 実弾モードをOFFにしました（シミュレーションに戻りました）');
+    showToast('実弾モード OFF', 'info');
+    syncLiveTradingToServer(false);
+    return;
+  }
+
+  // ONにする場合は明確な二重確認
+  document.getElementById('mTitle').textContent = '⚠ 実弾モードを有効化';
+  document.getElementById('mDetail').innerHTML = `
+    <div class="row" style="color:var(--red);font-weight:bold">本当に実弾モードをONにしますか？</div>
+    <div class="row" style="font-size:11px;line-height:1.6">
+      ONにすると、FULLモードでAIがBUY判定（スコア${STATE.settings.aiThreshold}以上）を出した際、
+      自動的にBitgetの実際の資金で注文が送信されます。<br><br>
+      投入額: 残高の${STATE.settings.sizePercent}%<br>
+      損切り: ${STATE.settings.slPercent}%<br>
+      1日最大損失率: ${GUARDRAIL.dailyLossLimitPct}%（開始残高比）<br>
+      連続損切り${GUARDRAIL.maxConsecutiveSL}回で自動停止
+    </div>`;
+  STATE.pendingOrder = { type: 'enableLive' };
+  document.getElementById('mConfirmBtn').textContent = '実弾モードをONにする';
+  document.getElementById('modal').classList.add('open');
+}
+
+
+function updateSL(val) {
+  STATE.settings.slPercent = parseInt(val);
+  document.getElementById('slDisplay').textContent = val + '%';
+  document.getElementById('slSlider').value = val;
+  const abs = Math.abs(parseInt(val));
+  let advice;
+  if (abs <= 8)  advice = '⚠ タイトすぎ — ノイズで刈られるリスクあり';
+  else if (abs <= 15) advice = '✅ 標準的な設定 — 新規上場コインに適切';
+  else if (abs <= 25) advice = '💡 やや広め — 高ボラ銘柄向き';
+  else advice = '⚠ 広すぎ — 損失が大きくなる可能性あり';
+  document.getElementById('slAdvice').textContent = advice;
+}
+
+const DEFAULT_SETTINGS = {
+  maxListingAge:24, aiThreshold:75, rsiMin:45, rsiMax:65,
+  volMultiple:1.5, minLiquidity:100000, slPercent:-6,
+  tp1Pct:12, tp1Sell:50, tp2Pct:20, tp2Sell:25, trailingDrop:8,
+  maxPos:2, sizePercent:30, interval:5,
+  autoEntry:true, autoTP:true, autoSL:true, aiFilter:true,
+};
+
+function saveSettings() {
+  const s = STATE.settings;
+  s.maxListingAge = parseInt(document.getElementById('set-maxage').value)    || 24;
+  s.aiThreshold   = parseInt(document.getElementById('set-aithresh').value)  || 75;
+  s.rsiMin        = parseInt(document.getElementById('set-rsimin').value)    || 45;
+  s.rsiMax        = parseInt(document.getElementById('set-rsimax').value)    || 65;
+  s.volMultiple   = parseFloat(document.getElementById('set-volmul').value)  || 1.5;
+  s.minLiquidity  = (parseFloat(document.getElementById('set-liq').value)||100) * 1000;
+  s.slPercent     = parseInt(document.getElementById('slSlider').value)      || -6;
+  s.tp1Pct        = parseInt(document.getElementById('set-tp1pct').value)   || 12;
+  s.tp1Sell       = parseInt(document.getElementById('set-tp1sell').value)  || 50;
+  s.tp2Pct        = parseInt(document.getElementById('set-tp2pct').value)   || 20;
+  s.tp2Sell       = parseInt(document.getElementById('set-tp2sell').value)  || 25;
+  s.trailingDrop  = parseInt(document.getElementById('set-trail').value)    || 8;
+  s.maxPos        = parseInt(document.getElementById('set-maxpos').value)    || 2;
+  s.sizePercent   = parseInt(document.getElementById('set-size').value)      || 30;
+  s.interval      = parseInt(document.getElementById('set-interval').value)  || 5;
+  updatePreview();
+  updateTPRemain();
+  showToast('設定を保存しました ✅', 'info');
+  addLog('info', `設定保存: SL${s.slPercent}% TP①+${s.tp1Pct}%×${s.tp1Sell}%売 TP②+${s.tp2Pct}%×${s.tp2Sell}%売 TR-${s.trailingDrop}%`);
+  if (STATE.running) { stopAutoScan(); startAutoScan(); }
+  // アプリを閉じても設定が消えないよう、サーバー側にも保存する
+  syncSettingsToServer();
+}
+
+// フロントの設定値を、サーバー側のSCAN_SETTINGSにも保存する（アプリを閉じても消えないように）
+async function syncSettingsToServer() {
+  if (APP_MODE !== 'FULL') return;
+  const s = STATE.settings;
+  try {
+    await fetch(SERVER_URL + '/api/autoscan/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        aiThreshold: s.aiThreshold, rsiMin: s.rsiMin, rsiMax: s.rsiMax,
+        maxPos: s.maxPos, sizePercent: s.sizePercent, intervalMin: s.interval,
+        slPercent: s.slPercent, tp1Pct: s.tp1Pct, tp1Sell: s.tp1Sell,
+        tp2Pct: s.tp2Pct, tp2Sell: s.tp2Sell, trailingDrop: s.trailingDrop,
+      }),
+    });
+  } catch(e) { /* 失敗しても致命的ではない */ }
+}
+
+function resetSettings() {
+  Object.assign(STATE.settings, DEFAULT_SETTINGS);
+  loadSettings();
+  updatePreview();
+  updateTPRemain();
+  showToast('デフォルト設定に戻しました', 'warn');
+  addLog('warn', '設定をデフォルトにリセット');
+}
+
+function loadSettings() {
+  const s = STATE.settings;
+  const set = (id, val) => { const el = document.getElementById(id); if(el) el.value = val; };
+  set('set-maxage',   s.maxListingAge);
+  set('set-aithresh', s.aiThreshold);
+  set('set-rsimin',   s.rsiMin);
+  set('set-rsimax',   s.rsiMax);
+  set('set-volmul',   s.volMultiple);
+  set('set-liq',      s.minLiquidity / 1000);
+  set('slSlider',     s.slPercent);
+  set('set-tp1pct',   s.tp1Pct);
+  set('set-tp1sell',  s.tp1Sell);
+  set('set-tp2pct',   s.tp2Pct);
+  set('set-tp2sell',  s.tp2Sell);
+  set('set-trail',    s.trailingDrop);
+  set('set-maxpos',   s.maxPos);
+  set('set-size',     s.sizePercent);
+  set('set-interval', s.interval);
+  updateSL(s.slPercent);
+  updatePreview();
+  updateTPRemain();
+}
+
+function updatePreview() {
+  const s = STATE.settings;
+  const fmtLiq = s.minLiquidity >= 1e6 ? (s.minLiquidity/1e6).toFixed(1)+'M' : (s.minLiquidity/1e3).toFixed(0)+'K';
+  const rem1 = 100 - s.tp1Sell;
+  const rem2 = rem1 - rem1 * s.tp2Sell / 100;
+  const set = (id, v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('pv-age', s.maxListingAge + 'H以内');
+  set('pv-ai',  '≥ ' + s.aiThreshold + '点');
+  set('pv-rsi', s.rsiMin + '〜' + s.rsiMax);
+  set('pv-vol', '≥ ' + s.volMultiple + 'x');
+  set('pv-liq', '≥ $' + fmtLiq);
+  set('pv-sl',  s.slPercent + '%');
+  set('pv-tp',  `①+${s.tp1Pct}%で${s.tp1Sell}%売 ②+${s.tp2Pct}%で${s.tp2Sell}%売 残りTR-${s.trailingDrop}%`);
+}
+
+function updateTPRemain() {
+  const s = STATE.settings;
+  const rem1   = 100 - s.tp1Sell;                   // 利確①後の残り
+  const sold2  = Math.round(rem1 * s.tp2Sell / 100);// 利確②で売る量
+  const remain = rem1 - sold2;                        // トレーリング行き
+  const el = document.getElementById('tpRemainPct');
+  if (el) el.textContent = remain;
+}
+
+let lastKnownServerStatus = null; // 'connected' | 'error' | null（直前の状態。変化時のみログを出す）
+let lastKnownDbPersistent = null; // true/false/null（直前のDB永続化状態。変化時のみ警告ログを出す）
+
+async function checkServerConnection(isPeriodic = false) {
+  const setLabel = (id, text, color) => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = text; el.style.color = color; }
+  };
+  if (!isPeriodic) setLabel('serverStatusLabel', '確認中...', 'var(--muted)');
+  if (!isPeriodic) addLog('info', 'サーバー接続確認中...');
+  const startTime = Date.now();
+  try {
+    const r = await fetch(SERVER_URL + '/health', { signal: AbortSignal.timeout(8000) });
+    const elapsedMs = Date.now() - startTime;
+    const d = await r.json();
+    if (d.status === 'running') {
+      APP_MODE = 'FULL';
+      setLabel('serverStatusLabel', `✅ Railway接続中 (${elapsedMs}ms)`, 'var(--green)');
+      setLabel('serverModeLabel', 'FULL MODE', 'var(--green)');
+      setLabel('serverBitgetLabel', d.services?.bitget ? '✅ 有効' : '❌ 未設定', d.services?.bitget ? 'var(--green)' : 'var(--red)');
+      setLabel('serverClaudeLabel', d.services?.claude ? '✅ 有効' : '❌ 未設定', d.services?.claude ? 'var(--green)' : 'var(--red)');
+      setLabel('serverCmcLabel', d.services?.coinmarketcap ? '✅ 有効' : '❌ 未設定', d.services?.coinmarketcap ? 'var(--green)' : 'var(--red)');
+      // データ永続化状態の表示（要件: dbPersistent/usingFallbackをUIで確認できるようにする）
+      if (d.storage) {
+        const wasPersistent = lastKnownDbPersistent;
+        if (d.storage.dbPersistent) {
+          setLabel('serverDbLabel', `✅ 永続化中 (${d.storage.dataDir})`, 'var(--green)');
+        } else {
+          setLabel('serverDbLabel', `⚠ インメモリ(再起動で消失)`, 'var(--red)');
+          if (wasPersistent !== false) {
+            addLog('warn', `⚠ サーバーのデータ永続化が無効です（インメモリDB使用中）。Railwayが再起動するとログ・損益履歴が消失します。dataDir:${d.storage.dataDir}`);
+          }
+        }
+        lastKnownDbPersistent = d.storage.dbPersistent;
+      }
+      const ml = document.getElementById('modeLabel');
+      if (ml) { ml.textContent='FULL'; ml.style.background='rgba(0,255,136,.15)'; ml.style.borderColor='var(--green)'; ml.style.color='var(--green)'; }
+      // 状態が変化した時、または明示的な手動チェック時だけログに出す（定期実行での連続ログを防ぐ）
+      if (!isPeriodic || lastKnownServerStatus !== 'connected') {
+        addLog('info', `✅ Railway接続中 — FULLモード確認 (応答${elapsedMs}ms)`);
+      }
+      const isFirstConnection = lastKnownServerStatus === null;
+      lastKnownServerStatus = 'connected';
+      fetchRealBalance();
+      // 初回接続成功時のみ、サーバーに保存されている「スタート」「実弾モード」状態を復元する
+      if (isFirstConnection) {
+        restoreRunningStateFromServer();
+      }
+    } else {
+      // d.status が想定外の値だった場合も「未接続」扱いにして固まらないようにする
+      APP_MODE = 'DEMO';
+      setLabel('serverStatusLabel', '⚠ Railway接続エラー (応答形式異常)', 'var(--red)');
+      setLabel('serverModeLabel', 'DEMO MODE', 'var(--muted)');
+      if (!isPeriodic || lastKnownServerStatus !== 'error') {
+        addLog('warn', `Railwayサーバーの応答が異常です: ${JSON.stringify(d).slice(0,100)}`);
+      }
+      lastKnownServerStatus = 'error';
+    }
+  } catch(e) {
+    const elapsedMs = Date.now() - startTime;
+    APP_MODE = 'DEMO';
+    setLabel('serverStatusLabel', `❌ Railway接続エラー (${elapsedMs}ms timeout)`, 'var(--red)');
+    setLabel('serverModeLabel', 'DEMO MODE', 'var(--muted)');
+    setLabel('serverBitgetLabel', '—', 'var(--muted)');
+    setLabel('serverClaudeLabel', '—', 'var(--muted)');
+    setLabel('serverCmcLabel', '—', 'var(--muted)');
+    setLabel('serverDbLabel', '—', 'var(--muted)');
+    if (!isPeriodic || lastKnownServerStatus !== 'error') {
+      addLog('warn', `Railway接続エラー — DEMOモードで動作 (${e.message})`);
+    }
+    lastKnownServerStatus = 'error';
+  }
+}
+
+function testApiConnection() {
+  checkServerConnection();
+}
+
+setInterval(() => checkServerConnection(true), 10000); // 要件①: 10秒ごとに接続状態を自動更新(ログは変化時のみ)
+
+// ════════════════════════════════════════════════════════════
+//  月次レポート生成
+// ════════════════════════════════════════════════════════════
+async function generateMonthlyReport() {
+  const trades = STATE.trades;
+  if (!trades.length) {
+    showToast('トレード履歴がありません', 'warn');
+    return;
+  }
+
+  const area = document.getElementById('monthlyReportArea');
+  area.textContent = '🤖 Claude AI がレポートを生成中...';
+  area.style.color = 'var(--accent)';
+
+  // 今月のトレードを抽出
+  const now   = new Date();
+  const month = now.getMonth();
+  const year  = now.getFullYear();
+  const monthTrades = trades.filter(t => {
+    const d = new Date(t.closeTime || t.time || 0);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+  const targetTrades = monthTrades.length ? monthTrades : trades;
+
+  // 統計計算
+  const wins     = targetTrades.filter(t => (t.pnl || 0) > 0);
+  const losses   = targetTrades.filter(t => (t.pnl || 0) <= 0);
+  const totalPnl = targetTrades.reduce((s, t) => s + (t.pnl || 0), 0);
+  const winRate  = targetTrades.length ? (wins.length / targetTrades.length * 100).toFixed(1) : 0;
+  const avgWin   = wins.length   ? wins.reduce((s,t)=>s+(t.pnl||0),0)/wins.length     : 0;
+  const avgLoss  = losses.length ? losses.reduce((s,t)=>s+(t.pnl||0),0)/losses.length : 0;
+  const bestTrade  = targetTrades.reduce((a,b)=>((a.pnl||0)>(b.pnl||0)?a:b), {});
+  const worstTrade = targetTrades.reduce((a,b)=>((a.pnl||0)<(b.pnl||0)?a:b), {});
+
+  const monthLabel = `${year}年${month+1}月`;
+  document.getElementById('reportMonth').textContent = monthLabel;
+
+  // Railwayサーバー経由でClaude AIにレポート生成依頼
+  if (APP_MODE === 'FULL') {
+    try {
+      const prompt = `あなたは暗号通貨自動売買システムの月次レポートアナリストです。
+以下のトレード実績データから、投資家向けの月次レポートを生成してください。
+
+【${monthLabel} トレード実績】
+総トレード数: ${targetTrades.length}件
+勝率: ${winRate}%（${wins.length}勝${losses.length}敗）
+総損益: ${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}
+平均利益: +$${avgWin.toFixed(2)}
+平均損失: $${avgLoss.toFixed(2)}
+最良トレード: ${bestTrade.sym || '—'} ${bestTrade.pnl >= 0 ? '+' : ''}$${(bestTrade.pnl||0).toFixed(2)}
+最悪トレード: ${worstTrade.sym || '—'} $${(worstTrade.pnl||0).toFixed(2)}
+取引銘柄: ${[...new Set(targetTrades.map(t=>t.sym))].join(', ')}
+
+【レポート形式】
+① 今月のサマリー（2文）
+② 良かった点（1〜2点）
+③ 改善点（1〜2点）
+④ 来月への提言（1文）
+⑤ 総合評価: A/B/C/D
+
+300文字以内・日本語で作成してください。`;
+
+      const r = await fetch(SERVER_URL + '/api/claude/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: 'MONTHLY_REPORT', customPrompt: prompt })
+      });
+      const d = await r.json();
+      if (d.success && d.text) {
+        area.style.color = 'var(--text)';
+        area.innerHTML = d.text.split('\n').join('<br>');
+        addLog('info', `月次レポート生成完了: ${monthLabel}`);
+        return;
+      }
+    } catch(e) {
+      addLog('warn', 'AIレポート生成失敗: ' + e.message);
+    }
+  }
+
+  // DEMOモードまたは失敗時はローカル生成
+  area.style.color = 'var(--text)';
+  area.innerHTML = `<b>${monthLabel} 月次レポート</b><br>
+総トレード: ${targetTrades.length}件 | 勝率: ${winRate}%<br>
+総損益: <span style="color:${totalPnl>=0?'var(--green)':'var(--red)'}">
+${totalPnl>=0?'+':''}$${totalPnl.toFixed(2)}</span><br>
+平均利益: +$${avgWin.toFixed(2)} / 平均損失: $${avgLoss.toFixed(2)}<br>
+最良: ${bestTrade.sym||'—'}(${bestTrade.pnl>=0?'+':''}$${(bestTrade.pnl||0).toFixed(2)})`;
+  addLog('info', `月次レポート生成完了（ローカル）: ${monthLabel}`);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CSV出力
+// ════════════════════════════════════════════════════════════
+function exportCSV() {
+  const trades = STATE.trades;
+  if (!trades.length) {
+    showToast('出力するトレード履歴がありません', 'warn');
+    return;
+  }
+
+  const header = ['日時', '銘柄', '入値($)', '出値($)', '数量', '損益($)', '損益(%)', '決済理由'];
+  const rows = trades.map(t => [
+    t.closeTime || t.time || '',
+    t.sym || '',
+    (t.entryPrice || t.price || 0).toFixed(6),
+    (t.exitPrice  || t.closePrice || 0).toFixed(6),
+    (t.qty  || 0).toFixed(4),
+    (t.pnl  || 0).toFixed(2),
+    (t.pnlPct || 0).toFixed(2),
+    t.reason || '',
+  ]);
+
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const bom  = '﻿'; // Excel用BOM
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const now  = new Date();
+  a.href     = url;
+  a.download = `autotrade_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV出力完了', 'buy');
+  addLog('info', `CSV出力: ${trades.length}件`);
+}
+
+// ════════════════════════════════════════════════════════════
+//  COUNTDOWN
+// ════════════════════════════════════════════════════════════
+function startCountdown() {
+  setInterval(() => {
+    const el = document.getElementById('mNextScan');
+    const labelEl = document.getElementById('mNextScanLabel');
+    if (!el) return;
+
+    // 自律スキャンがONの場合、サーバー側の実際の次回スキャン時刻を表示する
+    // (フロントのSTATE.runningやガードレール状態とは無関係に、Railway上で動き続けるため)
+    if (isServerAutoScanEnabled && serverNextScanTime) {
+      if (labelEl) labelEl.textContent = '🤖サーバー自律';
+      const remainMs = new Date(serverNextScanTime).getTime() - Date.now();
+      if (remainMs <= 0) {
+        el.textContent = '実行中…';
+      } else {
+        const totalSec = Math.floor(remainMs / 1000);
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        el.textContent = m + ':' + String(s).padStart(2, '0');
+      }
+      return;
+    }
+
+    // 自律スキャンがOFFの場合は、従来通りフロントのスキャン(STATE.running依存)のカウントダウンを表示する
+    if (labelEl) labelEl.textContent = STATE.settings.interval + '分足';
+    if (STATE.running) {
+      STATE.scanCountdown = Math.max(0, STATE.scanCountdown - 1);
+      if (STATE.scanCountdown === 0) STATE.scanCountdown = STATE.settings.interval * 60;
+    }
+    const m = Math.floor(STATE.scanCountdown / 60);
+    const s = STATE.scanCountdown % 60;
+    el.textContent = m + ':' + String(s).padStart(2, '0');
+  }, 1000);
+}
+
+// ════════════════════════════════════════════════════════════
+//  LOG
+// ════════════════════════════════════════════════════════════
+function addLog(type, msg) {
+  const now = new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  STATE.logs.unshift({ type, msg, time: now });
+  if (STATE.logs.length > 100) STATE.logs.pop();
+  const box = document.getElementById('logBox');
+  if (!box) return;
+  box.innerHTML = STATE.logs.slice(0, 40).map(l =>
+    `<div class="log-line"><span class="log-time">${l.time}</span><span class="log-${l.type}">${l.msg}</span></div>`
+  ).join('');
+}
+
+function clearLog() { STATE.logs = []; document.getElementById('logBox').innerHTML = ''; }
+
+// ════════════════════════════════════════════════════════════
+//  MODAL / TOAST
+// ════════════════════════════════════════════════════════════
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+  STATE.pendingOrder = null;
+}
+function overlayClick(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+
+let toastTimer = null;
+function showToast(msg, type = 'info') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast t-' + type + ' show';
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+</script>
+</body>
+</html>
